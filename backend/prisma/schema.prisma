@@ -1,0 +1,245 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id               String       @id @default(uuid())
+  name             String
+  slug             String       @unique
+  stripeCustomerId String?      @unique
+  status           TenantStatus @default(ACTIVE)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  plans            Plan[]
+  subscriptions    Subscription[]
+  usageRecords     UsageRecord[]
+  invoices         Invoice[]
+  webhookEndpoints WebhookEndpoint[]
+  auditLogs        AuditLog[]
+}
+
+model Plan {
+  id           String          @id @default(uuid())
+  tenantId     String
+  name         String
+  slug         String          @unique
+  priceMonthly Int             // in smallest currency unit (paise/cents)
+  priceYearly  Int
+  currency     String          @default("INR")
+  interval     BillingInterval @default(MONTHLY)
+  isActive     Boolean         @default(true)
+  metadata     Json?
+  createdAt    DateTime        @default(now())
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  features      PlanFeature[]
+  subscriptions Subscription[]
+}
+
+model PlanFeature {
+  id         String    @id @default(uuid())
+  planId     String
+  featureKey String    // e.g. "api_calls", "seats", "storage_gb"
+  limitValue Int       // -1 = unlimited
+  limitType  LimitType @default(HARD)
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, featureKey])
+}
+
+model Subscription {
+  id                 String             @id @default(uuid())
+  tenantId           String
+  planId             String
+  stripeSubId        String?            @unique
+  status             SubscriptionStatus @default(TRIALING)
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  trialEndsAt        DateTime?
+  cancelledAt        DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  tenant          Tenant           @relation(fields: [tenantId], references: [id])
+  plan            Plan             @relation(fields: [planId], references: [id])
+  invoices        Invoice[]
+  dunningAttempts DunningAttempt[]
+}
+
+model UsageRecord {
+  id          String   @id @default(uuid())
+  tenantId    String
+  metricKey   String   // e.g. "api_calls", "storage_gb"
+  quantity    Int
+  windowStart DateTime
+  windowEnd   DateTime
+  flushedAt   DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, metricKey, windowStart])
+}
+
+model Invoice {
+  id              String        @id @default(uuid())
+  tenantId        String
+  subscriptionId  String
+  stripeInvoiceId String?       @unique
+  status          InvoiceStatus @default(DRAFT)
+  subtotal        Int           // cents/paise
+  tax             Int           @default(0)
+  total           Int
+  currency        String        @default("INR")
+  dueAt           DateTime?
+  paidAt          DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  tenant       Tenant            @relation(fields: [tenantId], references: [id])
+  subscription Subscription      @relation(fields: [subscriptionId], references: [id])
+  lineItems    InvoiceLineItem[]
+  payments     Payment[]
+}
+
+model InvoiceLineItem {
+  id          String       @id @default(uuid())
+  invoiceId   String
+  description String
+  quantity    Int
+  unitPrice   Int
+  amount      Int          // quantity * unitPrice
+  type        LineItemType @default(SUBSCRIPTION)
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id                    String        @id @default(uuid())
+  invoiceId             String
+  stripePaymentIntentId String?       @unique
+  status                PaymentStatus @default(PENDING)
+  amount                Int
+  currency              String
+  processedAt           DateTime?
+  createdAt             DateTime      @default(now())
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+}
+
+model DunningAttempt {
+  id             String        @id @default(uuid())
+  subscriptionId String
+  attemptNumber  Int
+  status         DunningStatus @default(SCHEDULED)
+  failureReason  String?
+  scheduledAt    DateTime
+  executedAt     DateTime?
+  createdAt      DateTime      @default(now())
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+}
+
+model WebhookEndpoint {
+  id            String   @id @default(uuid())
+  tenantId      String
+  url           String
+  signingSecret String   // HMAC-SHA256 key — never expose in API responses
+  eventTypes    Json     // string[]
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  tenant     Tenant            @relation(fields: [tenantId], references: [id])
+  deliveries WebhookDelivery[]
+}
+
+model WebhookDelivery {
+  id            String    @id @default(uuid())
+  endpointId    String
+  eventType     String
+  payload       Json
+  httpStatus    Int?
+  attemptCount  Int       @default(0)
+  lastAttemptAt DateTime?
+  createdAt     DateTime  @default(now())
+
+  endpoint WebhookEndpoint @relation(fields: [endpointId], references: [id])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  tenantId   String
+  action     String   // e.g. "subscription.upgraded", "invoice.voided"
+  entityType String
+  entityId   String
+  before     Json?
+  after      Json?
+  createdAt  DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, entityType, entityId])
+}
+
+// ── Enums ──────────────────────────────────────────────
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum BillingInterval {
+  MONTHLY
+  YEARLY
+}
+
+enum LimitType {
+  HARD
+  SOFT
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  UNPAID
+}
+
+enum InvoiceStatus {
+  DRAFT
+  OPEN
+  PAID
+  VOID
+  UNCOLLECTIBLE
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+enum DunningStatus {
+  SCHEDULED
+  ATTEMPTED
+  SUCCEEDED
+  FAILED
+  EXHAUSTED
+}
+
+enum LineItemType {
+  SUBSCRIPTION
+  USAGE
+  PRORATION
+  TAX
+  DISCOUNT
+}
