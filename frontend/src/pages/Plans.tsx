@@ -23,7 +23,7 @@ export default function PlansPage() {
         {plans?.map((plan: Plan) => (
           <div key={plan.id} className="card" style={{ display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-              <div className="stat-icon purple">
+              <div className="stat-icon accent">
                 <Package size={20} />
               </div>
               <div>
@@ -36,7 +36,7 @@ export default function PlansPage() {
 
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-                <span style={{ fontSize: 36, fontWeight: 800, letterSpacing: -1 }}>
+                <span style={{ fontSize: 36, fontWeight: 800, letterSpacing: 0 }}>
                   {formatCurrency(plan.priceMonthly, plan.currency)}
                 </span>
                 <span style={{ color: 'var(--text-muted)', fontSize: 14 }}>/month</span>

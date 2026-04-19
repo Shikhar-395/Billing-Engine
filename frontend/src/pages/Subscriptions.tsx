@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CreditCard, ArrowUpRight, XCircle } from 'lucide-react';
+import { CreditCard, XCircle } from 'lucide-react';
 import { subscriptionApi } from '../lib/api';
 import { formatCurrency, formatDate, relativeTime } from '../lib/utils';
 import type { Subscription } from '../types';

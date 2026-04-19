@@ -1,5 +1,27 @@
 import axios from 'axios';
-import type { ApiResponse, Tenant, Plan, Subscription, Invoice, Payment, WebhookEndpoint, WebhookDelivery, AuditLog, UsageMetric } from '../types';
+import type {
+  ApiResponse,
+  Tenant,
+  Plan,
+  PlanCreateInput,
+  Subscription,
+  Invoice,
+  Payment,
+  WebhookEndpoint,
+  WebhookDelivery,
+  AuditLog,
+  UsageMetric,
+} from '../types';
+
+interface SubscriptionUpgradeResult {
+  subscription: Subscription;
+  invoice?: Invoice;
+}
+
+interface DeleteResult {
+  deleted?: boolean;
+  id?: string;
+}
 
 const api = axios.create({
   baseURL: '/api/v1',
@@ -38,7 +60,7 @@ export const planApi = {
     api.get<ApiResponse<Plan[]>>('/plans').then(r => r.data.data),
   get: (id: string) =>
     api.get<ApiResponse<Plan>>(`/plans/${id}`).then(r => r.data.data),
-  create: (data: any) =>
+  create: (data: PlanCreateInput) =>
     api.post<ApiResponse<Plan>>('/plans', data).then(r => r.data.data),
   update: (id: string, data: Partial<Plan>) =>
     api.patch<ApiResponse<Plan>>(`/plans/${id}`, data).then(r => r.data.data),
@@ -55,7 +77,7 @@ export const subscriptionApi = {
   create: (data: { planId: string; trialDays?: number }) =>
     api.post<ApiResponse<Subscription>>('/subscriptions', data).then(r => r.data.data),
   upgrade: (id: string, newPlanId: string) =>
-    api.post<ApiResponse<any>>(`/subscriptions/${id}/upgrade`, { newPlanId }).then(r => r.data.data),
+    api.post<ApiResponse<SubscriptionUpgradeResult>>(`/subscriptions/${id}/upgrade`, { newPlanId }).then(r => r.data.data),
   cancel: (id: string) =>
     api.post<ApiResponse<Subscription>>(`/subscriptions/${id}/cancel`).then(r => r.data.data),
 };
@@ -71,7 +93,7 @@ export const usageApi = {
 // ── Invoices ─────────────────────────────────────────────
 export const invoiceApi = {
   list: (params?: { status?: string; limit?: number; offset?: number }) =>
-    api.get<ApiResponse<Invoice[]> & { meta: any }>('/invoices', { params }).then(r => ({ data: r.data.data, meta: r.data.meta })),
+    api.get<ApiResponse<Invoice[]>>('/invoices', { params }).then(r => ({ data: r.data.data, meta: r.data.meta })),
   get: (id: string) =>
     api.get<ApiResponse<Invoice>>(`/invoices/${id}`).then(r => r.data.data),
   void: (id: string) =>
@@ -95,7 +117,7 @@ export const webhookApi = {
   updateEndpoint: (id: string, data: Partial<WebhookEndpoint>) =>
     api.patch<ApiResponse<WebhookEndpoint>>(`/webhooks/endpoints/${id}`, data).then(r => r.data.data),
   deleteEndpoint: (id: string) =>
-    api.delete<ApiResponse<any>>(`/webhooks/endpoints/${id}`).then(r => r.data.data),
+    api.delete<ApiResponse<DeleteResult>>(`/webhooks/endpoints/${id}`).then(r => r.data.data),
   listDeliveries: (params?: { endpointId?: string; eventType?: string }) =>
     api.get<ApiResponse<WebhookDelivery[]>>('/webhooks/deliveries', { params }).then(r => r.data.data),
 };
@@ -103,7 +125,7 @@ export const webhookApi = {
 // ── Audit Logs ───────────────────────────────────────────
 export const auditApi = {
   list: (params?: { entityType?: string; entityId?: string; action?: string; limit?: number; offset?: number }) =>
-    api.get<ApiResponse<AuditLog[]> & { meta: any }>('/audit-logs', { params }).then(r => ({ data: r.data.data, meta: r.data.meta })),
+    api.get<ApiResponse<AuditLog[]>>('/audit-logs', { params }).then(r => ({ data: r.data.data, meta: r.data.meta })),
 };
 
 export default api;

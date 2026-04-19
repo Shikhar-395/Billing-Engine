@@ -1,11 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import {
-  Users,
   CreditCard,
   BarChart3,
   FileText,
   TrendingUp,
-  ArrowUpRight,
 } from 'lucide-react';
 import { tenantApi, planApi, subscriptionApi, invoiceApi } from '../lib/api';
 import { getTenantId } from '../lib/api';
@@ -45,6 +43,16 @@ export default function DashboardPage() {
     const plan = plans?.find((p: Plan) => p.id === s.planId);
     return sum + (plan?.priceMonthly || 0);
   }, 0);
+  const formattedMrr = formatCurrency(mrr);
+  const totalInvoices = tenant?._count?.invoices || 0;
+  const activePlanCount = plans?.length || 0;
+  const billingSnapshot = [
+    'billing:@(4):metric,value',
+    `mrr,${formattedMrr}`,
+    `subscriptions,${activeSubs.length}`,
+    `invoices,${totalInvoices}`,
+    `plans,${activePlanCount}`,
+  ].join('\n');
 
   return (
     <div>
@@ -53,13 +61,22 @@ export default function DashboardPage() {
         <p>Overview of {tenant?.name || 'your billing engine'}</p>
       </div>
 
+      <div className="dashboard-snapshot">
+        <div>
+          <span className="eyebrow">Runtime snapshot</span>
+          <h3>Billing state, compressed for quick decisions.</h3>
+          <p>Live tenant context is encoded into the same compact shape the rest of the system runs on.</p>
+        </div>
+        <pre aria-label="Billing runtime snapshot">{billingSnapshot}</pre>
+      </div>
+
       <div className="stats-grid">
         <div className="stat-card">
-          <div className="stat-icon purple">
+          <div className="stat-icon accent">
             <TrendingUp size={24} />
           </div>
           <div className="stat-info">
-            <h3>{formatCurrency(mrr)}</h3>
+            <h3>{formattedMrr}</h3>
             <p>Monthly Recurring Revenue</p>
           </div>
         </div>
@@ -75,11 +92,11 @@ export default function DashboardPage() {
         </div>
 
         <div className="stat-card">
-          <div className="stat-icon blue">
+          <div className="stat-icon cyan">
             <FileText size={24} />
           </div>
           <div className="stat-info">
-            <h3>{tenant?._count?.invoices || 0}</h3>
+            <h3>{totalInvoices}</h3>
             <p>Total Invoices</p>
           </div>
         </div>
@@ -89,7 +106,7 @@ export default function DashboardPage() {
             <BarChart3 size={24} />
           </div>
           <div className="stat-info">
-            <h3>{plans?.length || 0}</h3>
+            <h3>{activePlanCount}</h3>
             <p>Active Plans</p>
           </div>
         </div>

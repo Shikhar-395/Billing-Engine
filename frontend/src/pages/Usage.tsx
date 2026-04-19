@@ -82,7 +82,7 @@ export default function UsagePage() {
               color: 'var(--success)',
             }}
           >
-            ✓ Recorded {quantity} {metricKey} — window count: {(recordMutation.data as any)?.currentWindowCount}
+            Recorded {quantity} {metricKey} - window count: {recordMutation.data?.currentWindowCount}
           </div>
         )}
       </div>
@@ -91,7 +91,7 @@ export default function UsagePage() {
       <div className="stats-grid">
         {usageData?.metrics?.map((metric: UsageMetric) => (
           <div key={metric.metricKey} className="stat-card">
-            <div className="stat-icon blue">
+            <div className="stat-icon cyan">
               <BarChart3 size={24} />
             </div>
             <div className="stat-info" style={{ flex: 1 }}>

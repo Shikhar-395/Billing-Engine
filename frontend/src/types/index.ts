@@ -1,3 +1,11 @@
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
 export interface Tenant {
   id: string;
   name: string;
@@ -21,9 +29,21 @@ export interface Plan {
   currency: string;
   interval: 'MONTHLY' | 'YEARLY';
   isActive: boolean;
-  metadata: any;
+  metadata: JsonValue;
   createdAt: string;
   features?: PlanFeature[];
+}
+
+export interface PlanCreateInput {
+  name: string;
+  slug: string;
+  priceMonthly: number;
+  priceYearly: number;
+  currency?: string;
+  interval?: Plan['interval'];
+  isActive?: boolean;
+  metadata?: JsonValue;
+  features?: Array<Pick<PlanFeature, 'featureKey' | 'limitValue' | 'limitType'>>;
 }
 
 export interface PlanFeature {
@@ -116,7 +136,7 @@ export interface WebhookDelivery {
   id: string;
   endpointId: string;
   eventType: string;
-  payload: any;
+  payload: JsonValue;
   httpStatus: number | null;
   attemptCount: number;
   lastAttemptAt: string | null;
@@ -130,8 +150,8 @@ export interface AuditLog {
   action: string;
   entityType: string;
   entityId: string;
-  before: any;
-  after: any;
+  before: JsonValue;
+  after: JsonValue;
   createdAt: string;
 }
 

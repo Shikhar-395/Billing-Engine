@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { ScrollText, ChevronDown, ChevronRight } from 'lucide-react';
 import { auditApi } from '../lib/api';
 import { formatDateTime, relativeTime } from '../lib/utils';
@@ -63,9 +63,8 @@ export default function AuditLogsPage() {
             </thead>
             <tbody>
               {logsData?.data?.map((log: AuditLog) => (
-                <>
+                <Fragment key={log.id}>
                   <tr
-                    key={log.id}
                     onClick={() => setExpandedId(expandedId === log.id ? null : log.id)}
                     style={{ cursor: 'pointer' }}
                   >
@@ -103,7 +102,7 @@ export default function AuditLogsPage() {
                           }}
                         >
                           <div>
-                            <h4 style={{ fontSize: 12, fontWeight: 600, color: 'var(--danger)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                            <h4 style={{ fontSize: 12, fontWeight: 600, color: 'var(--danger)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0 }}>
                               Before
                             </h4>
                             <pre
@@ -123,7 +122,7 @@ export default function AuditLogsPage() {
                             </pre>
                           </div>
                           <div>
-                            <h4 style={{ fontSize: 12, fontWeight: 600, color: 'var(--success)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                            <h4 style={{ fontSize: 12, fontWeight: 600, color: 'var(--success)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0 }}>
                               After
                             </h4>
                             <pre
@@ -146,7 +145,7 @@ export default function AuditLogsPage() {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))}
               {(!logsData?.data || logsData.data.length === 0) && (
                 <tr>

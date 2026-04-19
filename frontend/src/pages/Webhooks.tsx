@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Webhook, Plus, Trash2, Globe, X } from 'lucide-react';
 import { webhookApi } from '../lib/api';
-import { formatDate, relativeTime } from '../lib/utils';
+import { relativeTime } from '../lib/utils';
 import type { WebhookEndpoint, WebhookDelivery } from '../types';
 
 const EVENT_TYPES = [
@@ -55,6 +55,8 @@ export default function WebhooksPage() {
     );
   };
 
+  if (isLoading) return <div className="loading-page"><div className="spinner" /> Loading webhooks...</div>;
+
   return (
     <div>
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -78,7 +80,7 @@ export default function WebhooksPage() {
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-            <h3 style={{ fontSize: 14, color: 'var(--warning)' }}>⚠ Signing Secret — Copy it now!</h3>
+            <h3 style={{ fontSize: 14, color: 'var(--warning)' }}>Signing Secret: copy it now</h3>
             <button className="btn btn-ghost btn-sm" onClick={() => setCreatedSecret(null)}>
               <X size={14} />
             </button>

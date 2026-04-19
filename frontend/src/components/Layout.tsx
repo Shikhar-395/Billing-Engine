@@ -8,7 +8,7 @@ import {
   Wallet,
   Webhook,
   ScrollText,
-  Zap,
+  Braces,
 } from 'lucide-react';
 
 const navItems = [
@@ -35,7 +35,7 @@ export default function Layout() {
       <aside className="sidebar">
         <div className="sidebar-logo">
           <div className="sidebar-logo-icon">
-            <Zap size={20} />
+            <Braces size={20} />
           </div>
           <div>
             <h1>BillFlow</h1>
@@ -64,6 +64,11 @@ export default function Layout() {
             ) : null
           )}
         </nav>
+
+        <div className="sidebar-footer">
+          <span className="runtime-pill">v0.1 Billing Core</span>
+          <code>usage:@stream</code>
+        </div>
       </aside>
 
       <main className="main-content">

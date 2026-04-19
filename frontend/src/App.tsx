@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { setTenantId, tenantApi } from './lib/api';
 
 import Layout from './components/Layout';
@@ -22,13 +22,19 @@ const queryClient = new QueryClient({
   },
 });
 
-function TenantBootstrap({ children }: { children: React.ReactNode }) {
+function TenantBootstrap({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
-  const [tenantName, setTenantName] = useState('');
+  const [bootstrapError, setBootstrapError] = useState('');
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
+    let isMounted = true;
+
     // Auto-discover or create a dev tenant
     async function init() {
+      setReady(false);
+      setBootstrapError('');
+
       try {
         // Try creating a default dev tenant
         const tenant = await tenantApi.create({
@@ -36,18 +42,20 @@ function TenantBootstrap({ children }: { children: React.ReactNode }) {
           slug: 'demo-tenant',
         });
         setTenantId(tenant.id);
-        setTenantName(tenant.name);
       } catch {
         // If slug conflict, fetch by listing
         try {
           const res = await fetch('/api/v1/plans');
-          const plans = await res.json();
-          if (plans.data?.length > 0) {
-            const tenantId = plans.data[0].tenantId;
-            setTenantId(tenantId);
-            const tenant = await tenantApi.get(tenantId);
-            setTenantName(tenant.name);
+          if (!res.ok) {
+            throw new Error('Plan lookup failed');
           }
+          const plans = (await res.json()) as { data?: Array<{ tenantId: string }> };
+          const tenantId = plans.data?.[0]?.tenantId;
+          if (!tenantId) {
+            throw new Error('No tenant discovered');
+          }
+          setTenantId(tenantId);
+          await tenantApi.get(tenantId);
         } catch {
           // Fallback: create with unique slug
           const tenant = await tenantApi.create({
@@ -55,27 +63,47 @@ function TenantBootstrap({ children }: { children: React.ReactNode }) {
             slug: `demo-${Date.now()}`,
           });
           setTenantId(tenant.id);
-          setTenantName(tenant.name);
         }
       }
-      setReady(true);
+      if (isMounted) {
+        setReady(true);
+      }
     }
-    init();
-  }, []);
+
+    init().catch(() => {
+      if (isMounted) {
+        setBootstrapError('Billing API is not reachable. Start the backend on port 4000, then retry.');
+        setReady(true);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [attempt]);
 
   if (!ready) {
     return (
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100vh',
-        gap: 16,
-        color: 'var(--text-muted)',
-        flexDirection: 'column',
-      }}>
-        <div className="spinner" style={{ width: 32, height: 32 }} />
-        <span>Connecting to billing engine...</span>
+      <div className="boot-screen">
+        <div className="boot-panel" aria-live="polite" aria-busy="true">
+          <div className="spinner spinner-lg" />
+          <span>Connecting to billing system...</span>
+          <code>tenant:auto / ledger:warm</code>
+        </div>
+      </div>
+    );
+  }
+
+  if (bootstrapError) {
+    return (
+      <div className="boot-screen">
+        <div className="boot-panel boot-panel-error" role="alert">
+          <span>Billing system did not respond</span>
+          <p>{bootstrapError}</p>
+          <button className="btn btn-primary btn-sm" onClick={() => setAttempt((value) => value + 1)}>
+            Retry connection
+          </button>
+        </div>
       </div>
     );
   }
