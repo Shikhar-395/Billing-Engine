@@ -140,6 +140,33 @@ On first run:
 3. Complete onboarding by creating your first tenant/company.
 4. Use the dashboard as that tenant owner.
 
+## Backend Docker Compose
+
+If you only want the backend stack, you can run it directly from the `backend` folder:
+
+```bash
+cd backend
+docker compose up --build
+```
+
+That starts:
+
+- the API on `http://localhost:4000`
+- PostgreSQL on `localhost:5432`
+- Redis on `localhost:6379`
+
+The backend container runs `prisma migrate deploy` automatically before starting the API.
+
+You can override defaults by creating a `backend/.env` file or exporting environment variables before running Compose. The most useful overrides are:
+
+```env
+API_BETTER_AUTH_SECRET="generate-a-random-secret-at-least-32-characters"
+API_BETTER_AUTH_URL="http://localhost:4000"
+POSTGRES_DB="billflow"
+POSTGRES_USER="billflow"
+POSTGRES_PASSWORD="billflow"
+```
+
 ## Authentication and Tenant Context
 
 BillFlow now uses Better Auth for first-party authentication. The default local flow is:
