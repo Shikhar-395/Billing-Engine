@@ -1,9 +1,9 @@
 import { Worker } from 'bullmq';
-import { getRedis } from '../config/redis';
-import { usageFlushQueue } from '../config/queues';
-import { processUsageFlush } from './usageFlush.processor';
-import { processDunning } from './dunning.processor';
-import { processWebhookDelivery } from './webhookDelivery.processor';
+import { getRedis } from '../config/redis.js';
+import { usageFlushQueue } from '../config/queues.js';
+import { processUsageFlush } from './usageFlush.processor.js';
+import { processDunning } from './dunning.processor.js';
+import { processWebhookDelivery } from './webhookDelivery.processor.js';
 
 /**
  * BullMQ workers initialization.

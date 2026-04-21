@@ -1,12 +1,12 @@
-import { getPrisma } from '../../config/prisma';
+import { getPrisma } from '../../config/prisma.js';
 import { InvoiceStatus } from '@prisma/client';
 import {
   computeSubscriptionCharge,
   computeUsageCharges,
   ChargeLineItem,
-} from '../billing/chargeCalculator';
-import { NotFoundError, ConflictError } from '../../utils/errors';
-import { dispatchWebhookEvent } from '../webhook/dispatcher';
+} from '../billing/chargeCalculator.js';
+import { NotFoundError, ConflictError } from '../../utils/errors.js';
+import { dispatchWebhookEvent } from '../webhook/dispatcher.js';
 
 /**
  * Invoice generator — creates invoices with line items for a billing period.

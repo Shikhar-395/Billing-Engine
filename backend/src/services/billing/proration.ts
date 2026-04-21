@@ -1,4 +1,4 @@
-import { daysInPeriod, daysRemaining } from '../../utils/dates';
+import { daysInPeriod, daysRemaining } from '../../utils/dates.js';
 
 /**
  * Mid-cycle proration calculator.

@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { getStripe } from '../config/stripe';
-import { env } from '../config/env';
-import { handleStripeEvent } from '../services/stripe/webhookHandler';
+import { getStripe } from '../config/stripe.js';
+import { env } from '../config/env.js';
+import { handleStripeEvent } from '../services/stripe/webhookHandler.js';
 
 const router = Router();
 

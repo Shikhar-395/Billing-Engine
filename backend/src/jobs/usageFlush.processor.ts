@@ -1,6 +1,6 @@
 import { Job } from 'bullmq';
-import { flushUsageToDatabase } from '../services/metering/flusher';
-import { UsageFlushJobData } from '../types';
+import { flushUsageToDatabase } from '../services/metering/flusher.js';
+import type { UsageFlushJobData } from '../types/index.js';
 
 /**
  * Usage flush processor.

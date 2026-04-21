@@ -1,7 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
-import { getRedis } from '../config/redis';
-import { env } from '../config/env';
-import { RateLimitError } from '../utils/errors';
+import type { Pipeline } from 'ioredis';
+import { getRedis } from '../config/redis.js';
+import { env } from '../config/env.js';
+import { RateLimitError } from '../utils/errors.js';
 
 /**
  * Redis sliding-window rate limiter.
@@ -26,7 +27,7 @@ export function rateLimiter(req: Request, _res: Response, next: NextFunction): v
     .zcard(key) // Count requests in window
     .pexpire(key, windowMs) // Ensure key expiry
     .exec()
-    .then((results) => {
+    .then((results: Awaited<ReturnType<Pipeline['exec']>>) => {
       if (!results) return next();
 
       const requestCount = results[2]?.[1] as number;
@@ -38,7 +39,7 @@ export function rateLimiter(req: Request, _res: Response, next: NextFunction): v
 
       next();
     })
-    .catch((err) => {
+    .catch((err: Error) => {
       // If Redis is down, allow the request through (fail open)
       console.error('Rate limiter error:', err.message);
       next();

@@ -1,9 +1,9 @@
-import { createApp } from './app';
-import { env } from './config/env';
-import { getRedis, closeRedis } from './config/redis';
-import { closePrisma } from './config/prisma';
-import { closeQueues } from './config/queues';
-import { startWorkers, stopWorkers } from './jobs/workers';
+import { createApp } from './app.js';
+import { env } from './config/env.js';
+import { getRedis, closeRedis } from './config/redis.js';
+import { closePrisma } from './config/prisma.js';
+import { closeQueues } from './config/queues.js';
+import { startWorkers, stopWorkers } from './jobs/workers.js';
 
 /**
  * HTTP server entry point.

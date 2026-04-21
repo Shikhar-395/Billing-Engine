@@ -1,12 +1,11 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { authenticate } from '../middleware/auth';
-import { getPrisma } from '../config/prisma';
-import { NotFoundError } from '../utils/errors';
+import { getPrisma } from '../config/prisma.js';
+import { NotFoundError } from '../utils/errors.js';
 
 const router = Router();
 
 // ── GET /payments ────────────────────────────────────────
-router.get('/', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const prisma = getPrisma();
     const { status, limit = '20', offset = '0' } = req.query;
@@ -41,11 +40,14 @@ router.get('/', authenticate, async (req: Request, res: Response, next: NextFunc
 });
 
 // ── GET /payments/:id ────────────────────────────────────
-router.get('/:id', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const prisma = getPrisma();
-    const payment = await prisma.payment.findUnique({
-      where: { id: req.params.id as string },
+    const payment = await prisma.payment.findFirst({
+      where: {
+        id: req.params.id as string,
+        invoice: { tenantId: req.tenant!.tenantId },
+      },
       include: {
         invoice: {
           include: {

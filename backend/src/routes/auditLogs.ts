@@ -1,11 +1,10 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { authenticate } from '../middleware/auth';
-import { getPrisma } from '../config/prisma';
+import { getPrisma } from '../config/prisma.js';
 
 const router = Router();
 
 // ── GET /audit-logs ──────────────────────────────────────
-router.get('/', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const prisma = getPrisma();
     const {

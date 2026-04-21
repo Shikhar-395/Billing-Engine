@@ -1,9 +1,9 @@
 import Stripe from 'stripe';
-import { getRedis } from '../../config/redis';
-import { getPrisma } from '../../config/prisma';
-import { transitionSubscription } from '../subscription/manager';
-import { markInvoicePaid } from '../invoice/manager';
-import { initiateDunning } from '../dunning/engine';
+import { getRedis } from '../../config/redis.js';
+import { getPrisma } from '../../config/prisma.js';
+import { transitionSubscription } from '../subscription/manager.js';
+import { markInvoicePaid } from '../invoice/manager.js';
+import { initiateDunning } from '../dunning/engine.js';
 
 /**
  * Idempotent Stripe webhook handler.

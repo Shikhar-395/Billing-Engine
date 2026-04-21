@@ -26,15 +26,29 @@ interface DeleteResult {
 const api = axios.create({
   baseURL: '/api/v1',
   headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
 });
 
 // Inject tenant ID header on every request
-let currentTenantId: string | null = null;
+let currentTenantId: string | null =
+  typeof window !== 'undefined' ? window.localStorage.getItem('billflow_tenant_id') : null;
+
 export function setTenantId(id: string) {
   currentTenantId = id;
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem('billflow_tenant_id', id);
+  }
 }
+
 export function getTenantId(): string | null {
   return currentTenantId;
+}
+
+export function clearTenantId() {
+  currentTenantId = null;
+  if (typeof window !== 'undefined') {
+    window.localStorage.removeItem('billflow_tenant_id');
+  }
 }
 
 api.interceptors.request.use((config) => {

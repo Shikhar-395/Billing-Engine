@@ -2,20 +2,22 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import { errorHandler } from './middleware/errorHandler';
-import { authenticate } from './middleware/auth';
-import { rateLimiter } from './middleware/rateLimiter';
+import { toNodeHandler } from 'better-auth/node';
+import { auth } from './auth.js';
+import { errorHandler } from './middleware/errorHandler.js';
+import { authenticate } from './middleware/auth.js';
+import { rateLimiter } from './middleware/rateLimiter.js';
 
 // Route imports
-import tenantRoutes from './routes/tenants';
-import planRoutes from './routes/plans';
-import subscriptionRoutes from './routes/subscriptions';
-import usageRoutes from './routes/usage';
-import invoiceRoutes from './routes/invoices';
-import paymentRoutes from './routes/payments';
-import webhookRoutes from './routes/webhooks';
-import stripeWebhookRoute from './routes/stripeWebhook';
-import auditLogRoutes from './routes/auditLogs';
+import tenantRoutes from './routes/tenants.js';
+import planRoutes from './routes/plans.js';
+import subscriptionRoutes from './routes/subscriptions.js';
+import usageRoutes from './routes/usage.js';
+import invoiceRoutes from './routes/invoices.js';
+import paymentRoutes from './routes/payments.js';
+import webhookRoutes from './routes/webhooks.js';
+import stripeWebhookRoute from './routes/stripeWebhook.js';
+import auditLogRoutes from './routes/auditLogs.js';
 
 /**
  * Express application factory.
@@ -38,6 +40,9 @@ export function createApp(): express.Application {
     }
   );
 
+  // Better Auth routes need the raw request before express.json()
+  app.all('/api/auth/*', toNodeHandler(auth));
+
   // JSON body parser for all other routes
   app.use(express.json());
 
@@ -46,12 +51,12 @@ export function createApp(): express.Application {
 
   // Public routes (no auth)
   v1.use('/tenants', tenantRoutes);
-  v1.use('/plans', planRoutes);
 
   // Stripe webhook (separate auth via signature)
   v1.use('/stripe/webhook', stripeWebhookRoute);
 
   // Protected routes (JWT auth + rate limiting)
+  v1.use('/plans', authenticate, rateLimiter, planRoutes);
   v1.use('/subscriptions', authenticate, rateLimiter, subscriptionRoutes);
   v1.use('/usage', authenticate, rateLimiter, usageRoutes);
   v1.use('/invoices', authenticate, rateLimiter, invoiceRoutes);

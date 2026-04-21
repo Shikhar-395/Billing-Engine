@@ -1,56 +1,136 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import { env } from '../config/env';
-import { TenantContext } from '../types';
-import { UnauthorizedError, ForbiddenError } from '../utils/errors';
+import { fromNodeHeaders } from 'better-auth/node';
+import { MembershipRole } from '@prisma/client';
+import { auth } from '../auth.js';
+import { getPrisma } from '../config/prisma.js';
+import { TenantContext } from '../types/index.js';
+import { UnauthorizedError, ForbiddenError } from '../utils/errors.js';
 
-/**
- * JWT authentication middleware.
- * Extracts tenant context from the JWT and attaches it to req.tenant.
- *
- * In development mode, if no Authorization header is present, allows
- * a X-Tenant-Id header for testing convenience.
- */
-export function authenticate(req: Request, _res: Response, next: NextFunction): void {
-  const authHeader = req.headers.authorization;
-
-  // Dev-mode bypass: allow X-Tenant-Id header for testing
-  if (!authHeader && env.NODE_ENV === 'development') {
-    const devTenantId = req.headers['x-tenant-id'] as string;
-    if (devTenantId) {
-      req.tenant = { tenantId: devTenantId, role: 'admin' };
-      return next();
-    }
-  }
-
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return next(new UnauthorizedError('Missing or invalid Authorization header'));
-  }
-
-  const token = authHeader.split(' ')[1];
-
-  try {
-    const decoded = jwt.verify(token, env.JWT_SECRET) as {
-      tenantId: string;
-      role: 'admin' | 'member' | 'viewer';
-    };
-
-    req.tenant = {
-      tenantId: decoded.tenantId,
-      role: decoded.role,
-    };
-
-    next();
-  } catch (err) {
-    next(new UnauthorizedError('Invalid or expired token'));
+function normalizeRole(role: MembershipRole): TenantContext['role'] {
+  switch (role) {
+    case 'OWNER':
+      return 'owner';
+    case 'ADMIN':
+      return 'admin';
+    case 'MEMBER':
+      return 'member';
+    case 'VIEWER':
+      return 'viewer';
+    default:
+      return 'viewer';
   }
 }
 
-/**
- * Role guard factory. Use after `authenticate` middleware.
- *
- * Usage: router.post('/plans', authenticate, requireRole('admin'), handler)
- */
+async function readSession(req: Request) {
+  const session = await auth.api.getSession({
+    headers: fromNodeHeaders(req.headers),
+  });
+
+  if (!session) {
+    return null;
+  }
+
+  return {
+    session: {
+      id: session.session.id,
+      expiresAt: session.session.expiresAt,
+    },
+    user: {
+      id: session.user.id,
+      email: session.user.email,
+      name: session.user.name,
+      image: session.user.image,
+      emailVerified: session.user.emailVerified,
+    },
+  };
+}
+
+export async function authenticateSession(
+  req: Request,
+  _res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const session = await readSession(req);
+
+    if (!session) {
+      return next(new UnauthorizedError('Authentication required'));
+    }
+
+    req.auth = session;
+    next();
+  } catch {
+    next(new UnauthorizedError('Invalid or expired session'));
+  }
+}
+
+export async function authenticate(
+  req: Request,
+  _res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const session = await readSession(req);
+
+    if (!session) {
+      return next(new UnauthorizedError('Authentication required'));
+    }
+
+    req.auth = session;
+
+    const requestedTenantId =
+      typeof req.headers['x-tenant-id'] === 'string'
+        ? req.headers['x-tenant-id']
+        : undefined;
+
+    const memberships = await getPrisma().tenantMembership.findMany({
+      where: { userId: req.auth.user.id },
+      include: {
+        tenant: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            status: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    if (memberships.length === 0) {
+      return next(
+        new ForbiddenError(
+          'Complete onboarding before accessing billing data'
+        )
+      );
+    }
+
+    const activeMembership = requestedTenantId
+      ? memberships.find(
+          (membership) => membership.tenantId === requestedTenantId
+        )
+      : memberships[0];
+
+    if (!activeMembership) {
+      return next(
+        new ForbiddenError('You do not have access to this tenant')
+      );
+    }
+
+    req.tenant = {
+      userId: req.auth.user.id,
+      email: req.auth.user.email,
+      tenantId: activeMembership.tenantId,
+      role: normalizeRole(activeMembership.role),
+    };
+
+    next();
+  } catch {
+    next(new UnauthorizedError('Authentication required'));
+  }
+}
+
 export function requireRole(...roles: TenantContext['role'][]) {
   return (req: Request, _res: Response, next: NextFunction): void => {
     if (!req.tenant) {

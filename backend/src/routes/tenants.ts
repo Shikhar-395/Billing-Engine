@@ -1,8 +1,9 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { getPrisma } from '../config/prisma';
-import { validate } from '../middleware/validate';
-import { NotFoundError } from '../utils/errors';
+import { getPrisma } from '../config/prisma.js';
+import { authenticate, authenticateSession } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
+import { NotFoundError } from '../utils/errors.js';
 
 const router = Router();
 
@@ -18,11 +19,23 @@ const updateTenantSchema = z.object({
 });
 
 // ── POST /tenants ────────────────────────────────────────
-router.post('/', validate(createTenantSchema), async (req: Request, res: Response, next: NextFunction) => {
+router.post('/', authenticateSession, validate(createTenantSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const prisma = getPrisma();
-    const tenant = await prisma.tenant.create({
-      data: req.body,
+    const tenant = await prisma.$transaction(async (tx) => {
+      const createdTenant = await tx.tenant.create({
+        data: req.body,
+      });
+
+      await tx.tenantMembership.create({
+        data: {
+          tenantId: createdTenant.id,
+          userId: req.auth!.user.id,
+          role: 'OWNER',
+        },
+      });
+
+      return createdTenant;
     });
 
     res.status(201).json({ success: true, data: tenant });
@@ -32,8 +45,12 @@ router.post('/', validate(createTenantSchema), async (req: Request, res: Respons
 });
 
 // ── GET /tenants/:id ─────────────────────────────────────
-router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/:id', authenticate, async (req: Request, res: Response, next: NextFunction) => {
   try {
+    if (req.params.id !== req.tenant!.tenantId) {
+      throw new NotFoundError('Tenant', req.params.id as string);
+    }
+
     const prisma = getPrisma();
     const tenant = await prisma.tenant.findUnique({
       where: { id: req.params.id as string },
@@ -52,8 +69,12 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 });
 
 // ── PATCH /tenants/:id ───────────────────────────────────
-router.patch('/:id', validate(updateTenantSchema), async (req: Request, res: Response, next: NextFunction) => {
+router.patch('/:id', authenticate, validate(updateTenantSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
+    if (req.params.id !== req.tenant!.tenantId) {
+      throw new NotFoundError('Tenant', req.params.id as string);
+    }
+
     const prisma = getPrisma();
     const tenant = await prisma.tenant.update({
       where: { id: req.params.id as string },

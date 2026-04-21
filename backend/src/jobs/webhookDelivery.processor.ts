@@ -1,6 +1,6 @@
 import { Job } from 'bullmq';
-import { deliverWebhook } from '../services/webhook/deliverer';
-import { WebhookDeliveryJobData } from '../types';
+import { deliverWebhook } from '../services/webhook/deliverer.js';
+import type { WebhookDeliveryJobData } from '../types/index.js';
 
 /**
  * Webhook delivery processor.

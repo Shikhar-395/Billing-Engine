@@ -1,9 +1,8 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { getPrisma } from '../config/prisma';
-import { validate } from '../middleware/validate';
-import { authenticate } from '../middleware/auth';
-import { NotFoundError } from '../utils/errors';
+import { getPrisma } from '../config/prisma.js';
+import { validate } from '../middleware/validate.js';
+import { NotFoundError } from '../utils/errors.js';
 
 const router = Router();
 
@@ -37,7 +36,7 @@ const updatePlanSchema = z.object({
 });
 
 // ── POST /plans ──────────────────────────────────────────
-router.post('/', authenticate, validate(createPlanSchema), async (req: Request, res: Response, next: NextFunction) => {
+router.post('/', validate(createPlanSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const prisma = getPrisma();
     const { features, ...planData } = req.body;
@@ -64,7 +63,10 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const prisma = getPrisma();
     const plans = await prisma.plan.findMany({
-      where: { isActive: true },
+      where: {
+        tenantId: req.tenant!.tenantId,
+        isActive: true,
+      },
       include: { features: true },
       orderBy: { priceMonthly: 'asc' },
     });
@@ -79,8 +81,11 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const prisma = getPrisma();
-    const plan = await prisma.plan.findUnique({
-      where: { id: req.params.id as string },
+    const plan = await prisma.plan.findFirst({
+      where: {
+        id: req.params.id as string,
+        tenantId: req.tenant!.tenantId,
+      },
       include: { features: true },
     });
 
@@ -92,11 +97,20 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 });
 
 // ── PATCH /plans/:id ─────────────────────────────────────
-router.patch('/:id', authenticate, validate(updatePlanSchema), async (req: Request, res: Response, next: NextFunction) => {
+router.patch('/:id', validate(updatePlanSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const prisma = getPrisma();
+    const existingPlan = await prisma.plan.findFirst({
+      where: {
+        id: req.params.id as string,
+        tenantId: req.tenant!.tenantId,
+      },
+    });
+
+    if (!existingPlan) throw new NotFoundError('Plan', req.params.id as string);
+
     const plan = await prisma.plan.update({
-      where: { id: req.params.id as string },
+      where: { id: existingPlan.id },
       data: req.body,
       include: { features: true },
     });
@@ -108,11 +122,20 @@ router.patch('/:id', authenticate, validate(updatePlanSchema), async (req: Reque
 });
 
 // ── DELETE /plans/:id (soft delete) ──────────────────────
-router.delete('/:id', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const prisma = getPrisma();
+    const existingPlan = await prisma.plan.findFirst({
+      where: {
+        id: req.params.id as string,
+        tenantId: req.tenant!.tenantId,
+      },
+    });
+
+    if (!existingPlan) throw new NotFoundError('Plan', req.params.id as string);
+
     const plan = await prisma.plan.update({
-      where: { id: req.params.id as string },
+      where: { id: existingPlan.id },
       data: { isActive: false },
     });
 

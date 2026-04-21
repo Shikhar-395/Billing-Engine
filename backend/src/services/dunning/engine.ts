@@ -1,9 +1,9 @@
-import { getPrisma } from '../../config/prisma';
-import { dunningQueue } from '../../config/queues';
+import { getPrisma } from '../../config/prisma.js';
+import { dunningQueue } from '../../config/queues.js';
 import { DunningStatus } from '@prisma/client';
-import { transitionSubscription } from '../subscription/manager';
-import { dispatchWebhookEvent } from '../webhook/dispatcher';
-import { NotFoundError } from '../../utils/errors';
+import { transitionSubscription } from '../subscription/manager.js';
+import { dispatchWebhookEvent } from '../webhook/dispatcher.js';
+import { NotFoundError } from '../../utils/errors.js';
 
 /**
  * Dunning engine — handles failed payment recovery.

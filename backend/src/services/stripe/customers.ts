@@ -1,5 +1,5 @@
-import { getStripe } from '../../config/stripe';
-import { getPrisma } from '../../config/prisma';
+import { getStripe } from '../../config/stripe.js';
+import { getPrisma } from '../../config/prisma.js';
 
 /**
  * Stripe customer management.

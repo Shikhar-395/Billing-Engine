@@ -1,16 +1,27 @@
 import { z } from 'zod';
 import dotenv from 'dotenv';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
-// Load .env from the project root (parent of backend/)
-dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Load env files from either backend/.env or the repo root .env.
+for (const envPath of [
+  path.resolve(__dirname, '../../.env'),
+  path.resolve(__dirname, '../../../.env'),
+]) {
+  dotenv.config({ path: envPath, override: false });
+}
 
 const envSchema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   REDIS_URL: z.string().default('redis://localhost:6379'),
   STRIPE_SECRET_KEY: z.string().default('sk_test_placeholder'),
   STRIPE_WEBHOOK_SECRET: z.string().default('whsec_placeholder'),
-  JWT_SECRET: z.string().default('dev-jwt-secret-minimum-16-chars'),
+  BETTER_AUTH_SECRET: z.string().min(16).default('better-auth-secret-dev-only'),
+  BETTER_AUTH_URL: z.url().default('http://127.0.0.1:5173'),
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
   PORT: z.coerce.number().default(4000),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   RATE_LIMIT_MAX: z.coerce.number().default(100),

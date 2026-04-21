@@ -1,6 +1,6 @@
-import { getPrisma } from '../../config/prisma';
-import { webhookDeliveryQueue } from '../../config/queues';
-import { WebhookEventType, WebhookDeliveryJobData } from '../../types';
+import { getPrisma } from '../../config/prisma.js';
+import { webhookDeliveryQueue } from '../../config/queues.js';
+import type { WebhookEventType, WebhookDeliveryJobData } from '../../types/index.js';
 
 /**
  * Webhook dispatcher.

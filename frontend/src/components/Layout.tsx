@@ -1,4 +1,5 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { LogOut } from 'lucide-react';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   CreditCard,
@@ -10,6 +11,8 @@ import {
   ScrollText,
   Braces,
 } from 'lucide-react';
+import { authClient, useAuthSession } from '../lib/auth';
+import { clearTenantId, getTenantId } from '../lib/api';
 
 const navItems = [
   { section: 'Overview' },
@@ -30,6 +33,20 @@ const navItems = [
 ];
 
 export default function Layout() {
+  const navigate = useNavigate();
+  const { data: session } = useAuthSession();
+
+  const activeTenant =
+    session?.memberships.find(
+      (membership) => membership.tenantId === getTenantId()
+    ) ?? session?.memberships[0];
+
+  const handleSignOut = async () => {
+    await authClient.signOut();
+    clearTenantId();
+    navigate('/login');
+  };
+
   return (
     <div className="app-layout">
       <aside className="sidebar">
@@ -67,7 +84,17 @@ export default function Layout() {
 
         <div className="sidebar-footer">
           <span className="runtime-pill">v0.1 Billing Core</span>
-          <code>usage:@stream</code>
+          <code>{activeTenant ? `${activeTenant.tenant.slug} / ${activeTenant.role}` : 'usage:@stream'}</code>
+          <div className="sidebar-user">
+            <div>
+              <strong>{session?.user.name || 'Signed in'}</strong>
+              <span>{session?.user.email || 'account@billflow.dev'}</span>
+            </div>
+            <button className="btn btn-ghost btn-sm" onClick={handleSignOut}>
+              <LogOut size={14} />
+              Sign out
+            </button>
+          </div>
         </div>
       </aside>
 

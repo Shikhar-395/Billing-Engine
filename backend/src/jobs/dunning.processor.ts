@@ -1,6 +1,6 @@
 import { Job } from 'bullmq';
-import { processDunningAttempt } from '../services/dunning/engine';
-import { DunningJobData } from '../types';
+import { processDunningAttempt } from '../services/dunning/engine.js';
+import type { DunningJobData } from '../types/index.js';
 
 /**
  * Dunning processor.

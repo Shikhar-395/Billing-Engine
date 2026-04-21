@@ -7,6 +7,7 @@ The project is useful as a reference implementation for building a tenant-aware 
 ## What This Project Does
 
 - Creates and manages tenants.
+- Supports user signup, login, logout, and tenant onboarding.
 - Defines pricing plans with feature limits.
 - Creates, upgrades, cancels, and lists subscriptions.
 - Records usage events and summarizes metered consumption.
@@ -82,9 +83,13 @@ Then update at least:
 ```env
 DATABASE_URL="postgresql://user:password@host/dbname?sslmode=require"
 REDIS_URL="redis://localhost:6379"
+BETTER_AUTH_SECRET="generate-a-random-secret-at-least-32-characters"
+BETTER_AUTH_URL="http://127.0.0.1:5173"
 PORT=4000
 NODE_ENV="development"
 ```
+
+Google sign-in is optional. Leave `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` empty unless you want Google OAuth in local development.
 
 Stripe values can stay as placeholders for local UI/API exploration, but real Stripe webhook and payment flows require valid Stripe test credentials.
 
@@ -128,23 +133,37 @@ http://localhost:5173
 
 The frontend proxies `/api` requests to the backend. If the backend is not running, the dashboard will show a centered retry message instead of staying on an endless loading state.
 
-## Development Auth
+On first run:
 
-Protected API routes support a development shortcut when `NODE_ENV="development"`:
+1. Open the frontend.
+2. Create an account or sign in.
+3. Complete onboarding by creating your first tenant/company.
+4. Use the dashboard as that tenant owner.
+
+## Authentication and Tenant Context
+
+BillFlow now uses Better Auth for first-party authentication. The default local flow is:
+
+1. `POST /api/auth/sign-up/email` or `POST /api/auth/sign-in/email`
+2. Better Auth issues a session cookie
+3. `POST /api/v1/tenants` creates the first tenant and an owner membership
+4. The frontend sends `X-Tenant-Id` on API requests to select the active tenant when a user belongs to more than one tenant
+
+Protected `/api/v1` routes require a valid Better Auth session cookie. Most billing routes also require an active tenant membership.
+
+For manual API calls after login, send the tenant header:
 
 ```http
 X-Tenant-Id: <tenant-id>
 ```
 
-The frontend automatically creates or discovers a demo tenant on first load and sends this header for API requests.
+Useful auth routes:
 
-For production-style auth, use a bearer JWT signed with `JWT_SECRET` containing:
-
-```json
-{
-  "tenantId": "tenant_uuid",
-  "role": "admin"
-}
+```text
+POST /api/auth/sign-up/email
+POST /api/auth/sign-in/email
+POST /api/auth/sign-out
+GET  /api/auth/get-session
 ```
 
 ## API Areas
@@ -237,13 +256,18 @@ chmod +x test-api.sh
 ./test-api.sh
 ```
 
-Run the smoke test only after the backend, database, and Redis are running.
+The smoke test signs up a local test user through Better Auth, stores the session cookie, creates tenants, and exercises the protected billing routes. Run it only after the backend, database, and Redis are running.
 
 ## Data Model Overview
 
 The Prisma schema includes:
 
 - `Tenant`
+- `User`
+- `Session`
+- `Account`
+- `Verification`
+- `TenantMembership`
 - `Plan`
 - `PlanFeature`
 - `Subscription`
@@ -269,8 +293,13 @@ If the frontend says the billing system did not respond:
 
 If protected endpoints return `401` during local development:
 
-- Confirm `NODE_ENV="development"`.
-- Send `X-Tenant-Id` with a valid tenant ID.
+- Sign in through the frontend or Better Auth routes first.
+- Confirm the session cookie is being sent to `http://localhost:4000` or `http://127.0.0.1:4000`.
+
+If protected endpoints return `403` during local development:
+
+- Complete onboarding by creating a tenant/company.
+- Send `X-Tenant-Id` with a tenant ID the current user actually belongs to.
 
 If Prisma commands fail:
 
@@ -280,4 +309,4 @@ If Prisma commands fail:
 
 ## Project Status
 
-This is a development/demo billing engine. It is structured like a production service, but production use would still require hardening around authentication, tenant onboarding, Stripe configuration, secrets management, deployment, observability, and automated tests.
+This is still a development/demo billing engine. The repo now includes real auth, session handling, and tenant onboarding, but production use would still need deeper hardening around password reset and email verification flows, Stripe production configuration, secrets management, deployment, observability, and broader automated test coverage.

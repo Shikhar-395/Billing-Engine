@@ -1,11 +1,11 @@
-import { getPrisma } from '../../config/prisma';
+import { getPrisma } from '../../config/prisma.js';
 import { SubscriptionStatus, BillingInterval } from '@prisma/client';
-import { assertTransition } from './lifecycle';
-import { calculateProration, ProrationResult } from '../billing/proration';
-import { computeProrationCharge } from '../billing/chargeCalculator';
-import { addMonths, addYears } from '../../utils/dates';
-import { NotFoundError, ConflictError } from '../../utils/errors';
-import { dispatchWebhookEvent } from '../webhook/dispatcher';
+import { assertTransition } from './lifecycle.js';
+import { calculateProration, ProrationResult } from '../billing/proration.js';
+import { computeProrationCharge } from '../billing/chargeCalculator.js';
+import { addMonths, addYears } from '../../utils/dates.js';
+import { NotFoundError, ConflictError } from '../../utils/errors.js';
+import { dispatchWebhookEvent } from '../webhook/dispatcher.js';
 
 /**
  * Subscription manager — handles create, upgrade, cancel, renew.
@@ -31,7 +31,12 @@ export async function createSubscription(input: CreateSubscriptionInput) {
   const prisma = getPrisma();
   const { tenantId, planId, trialDays = 0, stripeSubId } = input;
 
-  const plan = await prisma.plan.findUnique({ where: { id: planId } });
+  const plan = await prisma.plan.findFirst({
+    where: {
+      id: planId,
+      tenantId,
+    },
+  });
   if (!plan) throw new NotFoundError('Plan', planId);
   if (!plan.isActive) throw new ConflictError('Plan is inactive');
 

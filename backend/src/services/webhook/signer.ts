@@ -1,4 +1,4 @@
-import { signPayload, verifySignature } from '../../utils/crypto';
+import { signPayload, verifySignature } from '../../utils/crypto.js';
 
 /**
  * Webhook signer — HMAC-SHA256 signing for outbound webhooks.

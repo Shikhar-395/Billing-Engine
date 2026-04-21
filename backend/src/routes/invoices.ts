@@ -1,13 +1,12 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { authenticate } from '../middleware/auth';
-import { getPrisma } from '../config/prisma';
-import { voidInvoice } from '../services/invoice/manager';
-import { NotFoundError } from '../utils/errors';
+import { getPrisma } from '../config/prisma.js';
+import { voidInvoice } from '../services/invoice/manager.js';
+import { NotFoundError } from '../utils/errors.js';
 
 const router = Router();
 
 // ── GET /invoices ────────────────────────────────────────
-router.get('/', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const prisma = getPrisma();
     const { status, limit = '20', offset = '0' } = req.query;
@@ -49,11 +48,14 @@ router.get('/', authenticate, async (req: Request, res: Response, next: NextFunc
 });
 
 // ── GET /invoices/:id ────────────────────────────────────
-router.get('/:id', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const prisma = getPrisma();
-    const invoice = await prisma.invoice.findUnique({
-      where: { id: req.params.id as string },
+    const invoice = await prisma.invoice.findFirst({
+      where: {
+        id: req.params.id as string,
+        tenantId: req.tenant!.tenantId,
+      },
       include: {
         lineItems: true,
         payments: { orderBy: { createdAt: 'desc' } },
@@ -69,10 +71,21 @@ router.get('/:id', authenticate, async (req: Request, res: Response, next: NextF
 });
 
 // ── POST /invoices/:id/void ──────────────────────────────
-router.post('/:id/void', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+router.post('/:id/void', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const invoice = await voidInvoice(req.params.id as string);
-    res.json({ success: true, data: invoice });
+    const prisma = getPrisma();
+    const existingInvoice = await prisma.invoice.findFirst({
+      where: {
+        id: req.params.id as string,
+        tenantId: req.tenant!.tenantId,
+      },
+      select: { id: true },
+    });
+
+    if (!existingInvoice) throw new NotFoundError('Invoice', req.params.id as string);
+
+    const voidedInvoice = await voidInvoice(req.params.id as string);
+    res.json({ success: true, data: voidedInvoice });
   } catch (err) {
     next(err);
   }

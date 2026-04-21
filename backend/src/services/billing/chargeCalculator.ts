@@ -1,4 +1,4 @@
-import { getPrisma } from '../../config/prisma';
+import { getPrisma } from '../../config/prisma.js';
 import { BillingInterval } from '@prisma/client';
 
 /**

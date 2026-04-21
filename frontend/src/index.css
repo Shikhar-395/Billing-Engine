@@ -253,6 +253,23 @@ a:hover {
   font-size: 12px;
 }
 
+.sidebar-user {
+  align-items: flex-start;
+  display: grid;
+  gap: 10px;
+}
+
+.sidebar-user strong {
+  color: var(--text-primary);
+  display: block;
+  font-size: 13px;
+}
+
+.sidebar-user span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
 /* ── Page Header ───────────────────────────────────────── */
 .page-header {
   margin-bottom: 32px;
@@ -319,6 +336,61 @@ a:hover {
   font-weight: 700;
   margin-bottom: 10px;
   text-transform: uppercase;
+}
+
+.auth-shell {
+  align-items: center;
+  display: grid;
+  min-height: 100svh;
+  padding: 24px;
+  place-items: center;
+}
+
+.auth-panel {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent),
+    var(--bg-card);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  display: grid;
+  gap: 20px;
+  max-width: 520px;
+  padding: 28px;
+  width: min(100%, 520px);
+}
+
+.auth-copy h1 {
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1.15;
+  margin-bottom: 10px;
+}
+
+.auth-copy p {
+  color: var(--text-secondary);
+}
+
+.auth-form {
+  display: grid;
+  gap: 10px;
+}
+
+.auth-submit {
+  justify-content: center;
+  margin-top: 6px;
+  width: 100%;
+}
+
+.auth-error {
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.auth-switch {
+  color: var(--text-secondary);
+  font-size: 14px;
+  text-align: center;
 }
 
 /* ── Cards ─────────────────────────────────────────────── */

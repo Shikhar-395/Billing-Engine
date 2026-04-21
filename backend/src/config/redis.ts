@@ -1,11 +1,11 @@
-import Redis from 'ioredis';
-import { env } from './env';
+import { Redis } from 'ioredis';
+import { env } from './env.js';
 
 let redis: Redis | null = null;
 
 export function getRedis(): Redis {
   if (!redis) {
-    redis = new Redis(env.REDIS_URL, {
+    const client = new Redis(env.REDIS_URL, {
       maxRetriesPerRequest: null, // Required by BullMQ
       enableReadyCheck: true,
       retryStrategy(times: number) {
@@ -14,13 +14,15 @@ export function getRedis(): Redis {
       },
     });
 
-    redis.on('error', (err) => {
+    client.on('error', (err: Error) => {
       console.error('Redis connection error:', err.message);
     });
 
-    redis.on('connect', () => {
+    client.on('connect', () => {
       console.log('✅ Redis connected');
     });
+
+    redis = client;
   }
 
   return redis;

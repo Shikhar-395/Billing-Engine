@@ -2,13 +2,30 @@ import { Request } from 'express';
 
 // ── Express Augmentation ─────────────────────────────────
 export interface TenantContext {
+  userId: string;
+  email: string;
   tenantId: string;
-  role: 'admin' | 'member' | 'viewer';
+  role: 'owner' | 'admin' | 'member' | 'viewer';
+}
+
+export interface AuthSessionContext {
+  session: {
+    id: string;
+    expiresAt: Date;
+  };
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    image?: string | null;
+    emailVerified: boolean;
+  };
 }
 
 declare global {
   namespace Express {
     interface Request {
+      auth?: AuthSessionContext;
       tenant?: TenantContext;
       rawBody?: Buffer;
     }

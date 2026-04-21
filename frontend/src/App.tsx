@@ -1,7 +1,6 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useEffect, useState, type ReactNode } from 'react';
-import { setTenantId, tenantApi } from './lib/api';
+import { useEffect } from 'react';
 
 import Layout from './components/Layout';
 import DashboardPage from './pages/Dashboard';
@@ -12,6 +11,11 @@ import InvoicesPage from './pages/Invoices';
 import PaymentsPage from './pages/Payments';
 import WebhooksPage from './pages/Webhooks';
 import AuditLogsPage from './pages/AuditLogs';
+import LoginPage from './pages/Login';
+import SignupPage from './pages/Signup';
+import OnboardingPage from './pages/Onboarding';
+import { clearTenantId, getTenantId, setTenantId } from './lib/api';
+import { type AuthSessionData, useAuthSession } from './lib/auth';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -22,114 +26,105 @@ const queryClient = new QueryClient({
   },
 });
 
-function TenantBootstrap({ children }: { children: ReactNode }) {
-  const [ready, setReady] = useState(false);
-  const [bootstrapError, setBootstrapError] = useState('');
-  const [attempt, setAttempt] = useState(0);
+function BootScreen({
+  message,
+  detail,
+}: {
+  message: string;
+  detail?: string;
+}) {
+  return (
+    <div className="boot-screen">
+      <div className="boot-panel" aria-live="polite" aria-busy="true">
+        <div className="spinner spinner-lg" />
+        <span>{message}</span>
+        {detail ? <code>{detail}</code> : null}
+      </div>
+    </div>
+  );
+}
 
+function SessionRouter({ session }: { session: AuthSessionData | null }) {
   useEffect(() => {
-    let isMounted = true;
-
-    // Auto-discover or create a dev tenant
-    async function init() {
-      setReady(false);
-      setBootstrapError('');
-
-      try {
-        // Try creating a default dev tenant
-        const tenant = await tenantApi.create({
-          name: 'Demo Tenant',
-          slug: 'demo-tenant',
-        });
-        setTenantId(tenant.id);
-      } catch {
-        // If slug conflict, fetch by listing
-        try {
-          const res = await fetch('/api/v1/plans');
-          if (!res.ok) {
-            throw new Error('Plan lookup failed');
-          }
-          const plans = (await res.json()) as { data?: Array<{ tenantId: string }> };
-          const tenantId = plans.data?.[0]?.tenantId;
-          if (!tenantId) {
-            throw new Error('No tenant discovered');
-          }
-          setTenantId(tenantId);
-          await tenantApi.get(tenantId);
-        } catch {
-          // Fallback: create with unique slug
-          const tenant = await tenantApi.create({
-            name: 'Demo Tenant',
-            slug: `demo-${Date.now()}`,
-          });
-          setTenantId(tenant.id);
-        }
-      }
-      if (isMounted) {
-        setReady(true);
-      }
+    if (!session || !session.onboardingComplete) {
+      clearTenantId();
+      return;
     }
 
-    init().catch(() => {
-      if (isMounted) {
-        setBootstrapError('Billing API is not reachable. Start the backend on port 4000, then retry.');
-        setReady(true);
-      }
-    });
+    const currentTenantId = getTenantId();
+    const memberships = session.memberships;
+    const fallbackTenantId =
+      memberships.find((membership) => membership.tenantId === currentTenantId)
+        ?.tenantId ??
+      session.currentTenantId ??
+      memberships[0]?.tenantId;
 
-    return () => {
-      isMounted = false;
-    };
-  }, [attempt]);
+    if (fallbackTenantId) {
+      setTenantId(fallbackTenantId);
+    }
+  }, [session]);
 
-  if (!ready) {
+  const isAuthenticated = Boolean(session);
+  const onboardingComplete = Boolean(session?.onboardingComplete);
+
+  return (
+    <Routes>
+      {!isAuthenticated ? (
+        <>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
+          <Route path="*" element={<Navigate replace to="/login" />} />
+        </>
+      ) : !onboardingComplete ? (
+        <>
+          <Route path="/onboarding" element={<OnboardingPage />} />
+          <Route path="*" element={<Navigate replace to="/onboarding" />} />
+        </>
+      ) : (
+        <>
+          <Route path="/login" element={<Navigate replace to="/" />} />
+          <Route path="/signup" element={<Navigate replace to="/" />} />
+          <Route path="/onboarding" element={<Navigate replace to="/" />} />
+          <Route element={<Layout />}>
+            <Route path="/" element={<DashboardPage />} />
+            <Route path="/plans" element={<PlansPage />} />
+            <Route path="/subscriptions" element={<SubscriptionsPage />} />
+            <Route path="/usage" element={<UsagePage />} />
+            <Route path="/invoices" element={<InvoicesPage />} />
+            <Route path="/payments" element={<PaymentsPage />} />
+            <Route path="/webhooks" element={<WebhooksPage />} />
+            <Route path="/audit-logs" element={<AuditLogsPage />} />
+          </Route>
+          <Route path="*" element={<Navigate replace to="/" />} />
+        </>
+      )}
+    </Routes>
+  );
+}
+
+function AppShell() {
+  const { data: session, isPending } = useAuthSession();
+
+  if (isPending) {
     return (
-      <div className="boot-screen">
-        <div className="boot-panel" aria-live="polite" aria-busy="true">
-          <div className="spinner spinner-lg" />
-          <span>Connecting to billing system...</span>
-          <code>tenant:auto / ledger:warm</code>
-        </div>
-      </div>
+      <BootScreen
+        message="Connecting to billing system..."
+        detail="auth:session / tenancy:resolve"
+      />
     );
   }
 
-  if (bootstrapError) {
-    return (
-      <div className="boot-screen">
-        <div className="boot-panel boot-panel-error" role="alert">
-          <span>Billing system did not respond</span>
-          <p>{bootstrapError}</p>
-          <button className="btn btn-primary btn-sm" onClick={() => setAttempt((value) => value + 1)}>
-            Retry connection
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return <>{children}</>;
+  return (
+    <BrowserRouter>
+      <SessionRouter session={session} />
+    </BrowserRouter>
+  );
 }
 
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TenantBootstrap>
-        <BrowserRouter>
-          <Routes>
-            <Route element={<Layout />}>
-              <Route path="/" element={<DashboardPage />} />
-              <Route path="/plans" element={<PlansPage />} />
-              <Route path="/subscriptions" element={<SubscriptionsPage />} />
-              <Route path="/usage" element={<UsagePage />} />
-              <Route path="/invoices" element={<InvoicesPage />} />
-              <Route path="/payments" element={<PaymentsPage />} />
-              <Route path="/webhooks" element={<WebhooksPage />} />
-              <Route path="/audit-logs" element={<AuditLogsPage />} />
-            </Route>
-          </Routes>
-        </BrowserRouter>
-      </TenantBootstrap>
+      <AppShell />
     </QueryClientProvider>
   );
 }

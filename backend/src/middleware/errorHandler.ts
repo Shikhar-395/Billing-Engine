@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { AppError, RateLimitError, ValidationError } from '../utils/errors';
-import { ApiResponse } from '../types';
+import { AppError, RateLimitError, ValidationError } from '../utils/errors.js';
+import type { ApiResponse } from '../types/index.js';
 
 /**
  * Global error handler.

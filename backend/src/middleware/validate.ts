@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
+import type { ParsedQs } from 'qs';
 import { ZodSchema, ZodError } from 'zod';
-import { ValidationError } from '../utils/errors';
+import { ValidationError } from '../utils/errors.js';
 
 /**
  * Generic Zod validation middleware factory.
@@ -19,7 +20,7 @@ export function validate(schema: ZodSchema) {
       next();
     } catch (err) {
       if (err instanceof ZodError) {
-        const fieldErrors = err.errors.map((e) => ({
+        const fieldErrors = err.issues.map((e) => ({
           field: e.path.join('.'),
           message: e.message,
           code: e.code,
@@ -39,11 +40,11 @@ export function validateQuery(schema: ZodSchema) {
   return (req: Request, _res: Response, next: NextFunction): void => {
     try {
       const parsed = schema.parse(req.query);
-      req.query = parsed;
+      req.query = parsed as ParsedQs;
       next();
     } catch (err) {
       if (err instanceof ZodError) {
-        const fieldErrors = err.errors.map((e) => ({
+        const fieldErrors = err.issues.map((e) => ({
           field: e.path.join('.'),
           message: e.message,
           code: e.code,

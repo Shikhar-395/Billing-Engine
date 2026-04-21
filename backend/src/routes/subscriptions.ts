@@ -1,15 +1,14 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { authenticate } from '../middleware/auth';
-import { validate } from '../middleware/validate';
-import { getPrisma } from '../config/prisma';
+import { validate } from '../middleware/validate.js';
+import { getPrisma } from '../config/prisma.js';
 import {
   createSubscription,
   upgradeSubscription,
   cancelSubscription,
-} from '../services/subscription/manager';
-import { addProrationToInvoice } from '../services/invoice/generator';
-import { NotFoundError } from '../utils/errors';
+} from '../services/subscription/manager.js';
+import { addProrationToInvoice } from '../services/invoice/generator.js';
+import { NotFoundError } from '../utils/errors.js';
 
 const router = Router();
 
@@ -24,7 +23,7 @@ const upgradeSubscriptionSchema = z.object({
 });
 
 // ── POST /subscriptions ──────────────────────────────────
-router.post('/', authenticate, validate(createSubscriptionSchema), async (req: Request, res: Response, next: NextFunction) => {
+router.post('/', validate(createSubscriptionSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const subscription = await createSubscription({
       tenantId: req.tenant!.tenantId,
@@ -39,7 +38,7 @@ router.post('/', authenticate, validate(createSubscriptionSchema), async (req: R
 });
 
 // ── GET /subscriptions ───────────────────────────────────
-router.get('/', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const prisma = getPrisma();
     const subscriptions = await prisma.subscription.findMany({
@@ -58,11 +57,14 @@ router.get('/', authenticate, async (req: Request, res: Response, next: NextFunc
 });
 
 // ── GET /subscriptions/:id ───────────────────────────────
-router.get('/:id', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const prisma = getPrisma();
-    const subscription = await prisma.subscription.findUnique({
-      where: { id: req.params.id as string },
+    const subscription = await prisma.subscription.findFirst({
+      where: {
+        id: req.params.id as string,
+        tenantId: req.tenant!.tenantId,
+      },
       include: {
         plan: { include: { features: true } },
         invoices: { orderBy: { createdAt: 'desc' }, take: 10 },
@@ -78,8 +80,29 @@ router.get('/:id', authenticate, async (req: Request, res: Response, next: NextF
 });
 
 // ── POST /subscriptions/:id/upgrade ──────────────────────
-router.post('/:id/upgrade', authenticate, validate(upgradeSubscriptionSchema), async (req: Request, res: Response, next: NextFunction) => {
+router.post('/:id/upgrade', validate(upgradeSubscriptionSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const prisma = getPrisma();
+    const currentSubscription = await prisma.subscription.findFirst({
+      where: {
+        id: req.params.id as string,
+        tenantId: req.tenant!.tenantId,
+      },
+      select: { id: true },
+    });
+
+    if (!currentSubscription) throw new NotFoundError('Subscription', req.params.id as string);
+
+    const targetPlan = await prisma.plan.findFirst({
+      where: {
+        id: req.body.newPlanId,
+        tenantId: req.tenant!.tenantId,
+      },
+      select: { id: true },
+    });
+
+    if (!targetPlan) throw new NotFoundError('Plan', req.body.newPlanId);
+
     const result = await upgradeSubscription(req.params.id as string, req.body.newPlanId);
 
     // Add proration line item to invoice
@@ -104,10 +127,21 @@ router.post('/:id/upgrade', authenticate, validate(upgradeSubscriptionSchema), a
 });
 
 // ── POST /subscriptions/:id/cancel ───────────────────────
-router.post('/:id/cancel', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+router.post('/:id/cancel', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const subscription = await cancelSubscription(req.params.id as string);
-    res.json({ success: true, data: subscription });
+    const prisma = getPrisma();
+    const currentSubscription = await prisma.subscription.findFirst({
+      where: {
+        id: req.params.id as string,
+        tenantId: req.tenant!.tenantId,
+      },
+      select: { id: true },
+    });
+
+    if (!currentSubscription) throw new NotFoundError('Subscription', req.params.id as string);
+
+    const cancelledSubscription = await cancelSubscription(req.params.id as string);
+    res.json({ success: true, data: cancelledSubscription });
   } catch (err) {
     next(err);
   }

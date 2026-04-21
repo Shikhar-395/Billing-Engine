@@ -7,6 +7,25 @@ BASE="http://localhost:4000"
 PASS=0
 FAIL=0
 TOTAL=0
+COOKIE_JAR=$(mktemp /tmp/billflow-auth-cookies.XXXXXX)
+RUN_ID=$(date +%s)
+TEST_EMAIL="codex+$RUN_ID@example.com"
+TEST_PASSWORD="Password123!"
+TEST_NAME="Codex Test Runner"
+TENANT_SLUG="acme-test-corp-$RUN_ID"
+TENANT_2_SLUG="beta-test-inc-$RUN_ID"
+STARTER_SLUG="starter-test-plan-$RUN_ID"
+PRO_SLUG="pro-test-plan-$RUN_ID"
+
+cleanup() {
+  rm -f "$COOKIE_JAR"
+}
+
+trap cleanup EXIT
+
+auth_curl() {
+  curl -s -b "$COOKIE_JAR" -c "$COOKIE_JAR" "$@"
+}
 
 test_endpoint() {
   local label="$1"
@@ -17,7 +36,7 @@ test_endpoint() {
   TOTAL=$((TOTAL + 1))
 
   local response
-  response=$(curl -s -w "\n%{http_code}" "$@" -X "$method" "$url")
+  response=$(auth_curl -w "\n%{http_code}" "$@" -X "$method" "$url")
   local body=$(echo "$response" | sed '$d')
   local code=$(echo "$response" | tail -1)
 
@@ -43,21 +62,41 @@ echo "── INFRASTRUCTURE ─────────────────�
 test_endpoint "Health Check" "200" "GET" "$BASE/health"
 echo ""
 
-# ─── 2. TENANT CRUD ───────────────────────────────────────
+# ─── 2. AUTHENTICATION ────────────────────────────────────
+echo "── AUTHENTICATION ─────────────────────────────────────"
+AUTH_RESPONSE=$(auth_curl -w "\n%{http_code}" -X POST "$BASE/api/auth/sign-up/email" \
+  -H "Content-Type: application/json" \
+  -d "{\"name\":\"$TEST_NAME\",\"email\":\"$TEST_EMAIL\",\"password\":\"$TEST_PASSWORD\"}")
+AUTH_BODY=$(echo "$AUTH_RESPONSE" | sed '$d')
+AUTH_CODE=$(echo "$AUTH_RESPONSE" | tail -1)
+TOTAL=$((TOTAL + 1))
+
+if [ "$AUTH_CODE" = "200" ] || [ "$AUTH_CODE" = "201" ]; then
+  echo "✅ #$TOTAL Create Auth Session → $TEST_EMAIL"
+  PASS=$((PASS + 1))
+else
+  echo "❌ #$TOTAL Create Auth Session → Expected 200/201, got $AUTH_CODE"
+  echo "   Body: $(echo "$AUTH_BODY" | head -3)"
+  FAIL=$((FAIL + 1))
+fi
+echo "$AUTH_BODY"
+echo ""
+
+# ─── 3. TENANT CRUD ───────────────────────────────────────
 echo "── TENANT MANAGEMENT ─────────────────────────────────"
 
 # Create Tenant 1
-RESP=$(curl -s -X POST "$BASE/api/v1/tenants" \
+RESP=$(auth_curl -X POST "$BASE/api/v1/tenants" \
   -H "Content-Type: application/json" \
-  -d '{"name": "Acme Corp", "slug": "acme-test-corp"}')
+  -d "{\"name\": \"Acme Corp\", \"slug\": \"$TENANT_SLUG\"}")
 TENANT_ID=$(echo "$RESP" | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['id'])" 2>/dev/null)
 echo "✅ #$((++TOTAL)) Create Tenant → ID: $TENANT_ID"
 PASS=$((PASS + 1))
 
 # Create Tenant 2
-RESP=$(curl -s -X POST "$BASE/api/v1/tenants" \
+RESP=$(auth_curl -X POST "$BASE/api/v1/tenants" \
   -H "Content-Type: application/json" \
-  -d '{"name": "Beta Inc", "slug": "beta-test-inc"}')
+  -d "{\"name\": \"Beta Inc\", \"slug\": \"$TENANT_2_SLUG\"}")
 TENANT_2_ID=$(echo "$RESP" | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['id'])" 2>/dev/null)
 echo "✅ #$((++TOTAL)) Create Tenant 2 → ID: $TENANT_2_ID"
 PASS=$((PASS + 1))
@@ -75,7 +114,7 @@ echo ""
 # Duplicate slug → 409
 test_endpoint "Duplicate Slug → 409" "409" "POST" "$BASE/api/v1/tenants" \
   -H "Content-Type: application/json" \
-  -d '{"name": "Dupe", "slug": "acme-test-corp"}'
+  -d "{\"name\": \"Dupe\", \"slug\": \"$TENANT_SLUG\"}"
 echo ""
 
 # Validation error → 400
@@ -90,23 +129,23 @@ test_endpoint "Missing Fields → 400" "400" "POST" "$BASE/api/v1/tenants" \
   -d '{}'
 echo ""
 
-# ─── 3. PLAN CRUD ─────────────────────────────────────────
+# ─── 4. PLAN CRUD ─────────────────────────────────────────
 echo "── PLAN MANAGEMENT ───────────────────────────────────"
 
 # Create Starter Plan
-RESP=$(curl -s -X POST "$BASE/api/v1/plans" \
+RESP=$(auth_curl -X POST "$BASE/api/v1/plans" \
   -H "Content-Type: application/json" \
   -H "X-Tenant-Id: $TENANT_ID" \
-  -d '{"name": "Starter", "slug": "starter-test-plan", "priceMonthly": 49900, "priceYearly": 499000, "currency": "INR", "features": [{"featureKey": "api_calls", "limitValue": 5000, "limitType": "HARD"}, {"featureKey": "seats", "limitValue": 5, "limitType": "HARD"}]}')
+  -d "{\"name\": \"Starter\", \"slug\": \"$STARTER_SLUG\", \"priceMonthly\": 49900, \"priceYearly\": 499000, \"currency\": \"INR\", \"features\": [{\"featureKey\": \"api_calls\", \"limitValue\": 5000, \"limitType\": \"HARD\"}, {\"featureKey\": \"seats\", \"limitValue\": 5, \"limitType\": \"HARD\"}]}")
 STARTER_ID=$(echo "$RESP" | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['id'])" 2>/dev/null)
 echo "✅ #$((++TOTAL)) Create Starter Plan → ID: $STARTER_ID"
 PASS=$((PASS + 1))
 
 # Create Pro Plan
-RESP=$(curl -s -X POST "$BASE/api/v1/plans" \
+RESP=$(auth_curl -X POST "$BASE/api/v1/plans" \
   -H "Content-Type: application/json" \
   -H "X-Tenant-Id: $TENANT_ID" \
-  -d '{"name": "Pro", "slug": "pro-test-plan", "priceMonthly": 149900, "priceYearly": 1499000, "currency": "INR", "features": [{"featureKey": "api_calls", "limitValue": 50000, "limitType": "HARD"}, {"featureKey": "seats", "limitValue": 25, "limitType": "SOFT"}, {"featureKey": "storage_gb", "limitValue": 100, "limitType": "SOFT"}]}')
+  -d "{\"name\": \"Pro\", \"slug\": \"$PRO_SLUG\", \"priceMonthly\": 149900, \"priceYearly\": 1499000, \"currency\": \"INR\", \"features\": [{\"featureKey\": \"api_calls\", \"limitValue\": 50000, \"limitType\": \"HARD\"}, {\"featureKey\": \"seats\", \"limitValue\": 25, \"limitType\": \"SOFT\"}, {\"featureKey\": \"storage_gb\", \"limitValue\": 100, \"limitType\": \"SOFT\"}]}")
 PRO_ID=$(echo "$RESP" | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['id'])" 2>/dev/null)
 echo "✅ #$((++TOTAL)) Create Pro Plan → ID: $PRO_ID"
 PASS=$((PASS + 1))
@@ -130,7 +169,7 @@ echo ""
 echo "── SUBSCRIPTION LIFECYCLE ────────────────────────────"
 
 # Create subscription with trial
-RESP=$(curl -s -X POST "$BASE/api/v1/subscriptions" \
+RESP=$(auth_curl -X POST "$BASE/api/v1/subscriptions" \
   -H "Content-Type: application/json" \
   -H "X-Tenant-Id: $TENANT_ID" \
   -d "{\"planId\": \"$STARTER_ID\", \"trialDays\": 7}")
@@ -162,7 +201,7 @@ test_endpoint "Cancel Subscription" "200" "POST" "$BASE/api/v1/subscriptions/$SU
 echo ""
 
 # Create another sub for further tests
-RESP=$(curl -s -X POST "$BASE/api/v1/subscriptions" \
+RESP=$(auth_curl -X POST "$BASE/api/v1/subscriptions" \
   -H "Content-Type: application/json" \
   -H "X-Tenant-Id: $TENANT_ID" \
   -d "{\"planId\": \"$PRO_ID\"}")
@@ -223,7 +262,7 @@ echo ""
 echo "── WEBHOOK MANAGEMENT ────────────────────────────────"
 
 # Create webhook endpoint
-RESP=$(curl -s -X POST "$BASE/api/v1/webhooks/endpoints" \
+RESP=$(auth_curl -X POST "$BASE/api/v1/webhooks/endpoints" \
   -H "Content-Type: application/json" \
   -H "X-Tenant-Id: $TENANT_ID" \
   -d '{"url": "https://example.com/billing-hook", "eventTypes": ["subscription.created", "subscription.cancelled", "invoice.paid", "dunning.started"]}')
@@ -271,8 +310,20 @@ echo ""
 test_endpoint "Unknown Route → 404" "404" "GET" "$BASE/api/v1/nonexistent"
 echo ""
 
-test_endpoint "No Auth on Protected Route" "200" "GET" "$BASE/api/v1/subscriptions" \
-  -H "X-Tenant-Id: $TENANT_ID"
+TOTAL=$((TOTAL + 1))
+NO_AUTH_RESPONSE=$(curl -s -w "\n%{http_code}" -X GET "$BASE/api/v1/subscriptions")
+NO_AUTH_BODY=$(echo "$NO_AUTH_RESPONSE" | sed '$d')
+NO_AUTH_CODE=$(echo "$NO_AUTH_RESPONSE" | tail -1)
+
+if [ "$NO_AUTH_CODE" = "401" ]; then
+  echo "✅ #$TOTAL No Auth on Protected Route → 401"
+  PASS=$((PASS + 1))
+else
+  echo "❌ #$TOTAL No Auth on Protected Route → Expected 401, got $NO_AUTH_CODE"
+  echo "   Body: $(echo "$NO_AUTH_BODY" | head -3)"
+  FAIL=$((FAIL + 1))
+fi
+echo "$NO_AUTH_BODY"
 echo ""
 
 # ─── 11. SOFT DELETE PLAN ─────────────────────────────────
@@ -283,7 +334,7 @@ test_endpoint "Soft Delete Starter Plan" "200" "DELETE" "$BASE/api/v1/plans/$STA
 echo ""
 
 # Verify it's gone from the active list
-ACTIVE_COUNT=$(curl -s "$BASE/api/v1/plans" | python3 -c "import sys,json; print(len(json.load(sys.stdin)['data']))" 2>/dev/null)
+ACTIVE_COUNT=$(auth_curl "$BASE/api/v1/plans" | python3 -c "import sys,json; print(len(json.load(sys.stdin)['data']))" 2>/dev/null)
 TOTAL=$((TOTAL + 1))
 echo "✅ #$TOTAL Active plans after delete: $ACTIVE_COUNT (Starter removed)"
 PASS=$((PASS + 1))

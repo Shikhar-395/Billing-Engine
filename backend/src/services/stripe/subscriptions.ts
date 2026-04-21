@@ -1,6 +1,6 @@
-import { getStripe } from '../../config/stripe';
-import { getPrisma } from '../../config/prisma';
-import { getOrCreateStripeCustomer } from './customers';
+import { getStripe } from '../../config/stripe.js';
+import { getPrisma } from '../../config/prisma.js';
+import { getOrCreateStripeCustomer } from './customers.js';
 
 /**
  * Stripe subscription management.

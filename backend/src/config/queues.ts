@@ -1,5 +1,5 @@
 import { Queue } from 'bullmq';
-import { getRedis } from './redis';
+import { getRedis } from './redis.js';
 
 let queues: Record<string, Queue> = {};
 

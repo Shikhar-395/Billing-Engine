@@ -1,7 +1,7 @@
-import { getRedis } from '../../config/redis';
-import { getPrisma } from '../../config/prisma';
-import { getUsageKeys, parseUsageKey } from './recorder';
-import { windowStart, windowEnd } from '../../utils/dates';
+import { getRedis } from '../../config/redis.js';
+import { getPrisma } from '../../config/prisma.js';
+import { getUsageKeys, parseUsageKey } from './recorder.js';
+import { windowStart, windowEnd } from '../../utils/dates.js';
 
 /**
  * Usage flusher.

@@ -1,6 +1,6 @@
-import { getPrisma } from '../../config/prisma';
-import { signWebhookPayload } from './signer';
-import { WebhookDeliveryJobData } from '../../types';
+import { getPrisma } from '../../config/prisma.js';
+import { signWebhookPayload } from './signer.js';
+import type { WebhookDeliveryJobData } from '../../types/index.js';
 
 /**
  * Webhook deliverer — called by the BullMQ webhook-delivery worker.

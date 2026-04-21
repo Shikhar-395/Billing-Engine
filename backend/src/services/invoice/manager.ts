@@ -1,7 +1,7 @@
-import { getPrisma } from '../../config/prisma';
+import { getPrisma } from '../../config/prisma.js';
 import { InvoiceStatus } from '@prisma/client';
-import { NotFoundError, ConflictError } from '../../utils/errors';
-import { dispatchWebhookEvent } from '../webhook/dispatcher';
+import { NotFoundError, ConflictError } from '../../utils/errors.js';
+import { dispatchWebhookEvent } from '../webhook/dispatcher.js';
 
 /**
  * Invoice manager — handles status transitions: finalize, mark paid, void.

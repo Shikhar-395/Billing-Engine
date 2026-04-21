@@ -1,5 +1,5 @@
-import { getRedis } from '../../config/redis';
-import { windowKey } from '../../utils/dates';
+import { getRedis } from '../../config/redis.js';
+import { windowKey } from '../../utils/dates.js';
 
 /**
  * Usage metering recorder.
