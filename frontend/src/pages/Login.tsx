@@ -1,6 +1,14 @@
 import { type FormEvent, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { authClient } from '../lib/auth';
+
+const googleAuthEnabled = import.meta.env.VITE_GOOGLE_AUTH_ENABLED === 'true';
+
+function redirectTo(path: string) {
+  if (typeof window !== 'undefined') {
+    window.location.assign(path);
+  }
+}
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) {
@@ -10,7 +18,6 @@ function getErrorMessage(error: unknown) {
 }
 
 export default function LoginPage() {
-  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -31,7 +38,7 @@ export default function LoginPage() {
         throw new Error(result.error.message || 'Unable to sign in.');
       }
 
-      navigate('/');
+      redirectTo('/');
     } catch (submitError) {
       setError(getErrorMessage(submitError));
     } finally {
@@ -100,9 +107,11 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <button className="btn btn-secondary auth-submit" type="button" onClick={handleGoogle} disabled={isPending}>
-          Continue with Google
-        </button>
+        {googleAuthEnabled ? (
+          <button className="btn btn-secondary auth-submit" type="button" onClick={handleGoogle} disabled={isPending}>
+            Continue with Google
+          </button>
+        ) : null}
 
         <p className="auth-switch">
           New here? <Link to="/signup">Create an account</Link>

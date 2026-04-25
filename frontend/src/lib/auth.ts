@@ -32,6 +32,7 @@ export interface AuthSessionData {
 }
 
 export const authClient = createAuthClient({
+  baseURL: '/api/auth',
   plugins: [customSessionClient()],
 });
 

@@ -341,9 +341,13 @@ a:hover {
 .auth-shell {
   align-items: center;
   display: grid;
+  flex: 1;
+  justify-items: center;
   min-height: 100svh;
+  min-height: 100vh;
   padding: 24px;
   place-items: center;
+  width: 100%;
 }
 
 .auth-panel {
@@ -355,25 +359,35 @@ a:hover {
   box-shadow: var(--shadow-lg);
   display: grid;
   gap: 20px;
+  grid-template-columns: minmax(0, 1fr);
+  margin: auto;
   max-width: 520px;
   padding: 28px;
   width: min(100%, 520px);
+}
+
+.auth-copy {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
 }
 
 .auth-copy h1 {
   font-size: 30px;
   font-weight: 800;
   line-height: 1.15;
-  margin-bottom: 10px;
+  overflow-wrap: anywhere;
 }
 
 .auth-copy p {
   color: var(--text-secondary);
+  overflow-wrap: anywhere;
 }
 
 .auth-form {
   display: grid;
   gap: 10px;
+  min-width: 0;
 }
 
 .auth-submit {
@@ -390,7 +404,22 @@ a:hover {
 .auth-switch {
   color: var(--text-secondary);
   font-size: 14px;
+  overflow-wrap: anywhere;
   text-align: center;
+}
+
+@media (max-width: 640px) {
+  .auth-shell {
+    padding: 16px;
+  }
+
+  .auth-panel {
+    padding: 22px;
+  }
+
+  .auth-copy h1 {
+    font-size: 26px;
+  }
 }
 
 /* ── Cards ─────────────────────────────────────────────── */

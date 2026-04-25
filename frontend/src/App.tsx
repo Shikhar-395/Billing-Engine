@@ -124,6 +124,7 @@ function AppShell() {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <div style={{ position: 'fixed', top: 0, left: 0, background: 'red', color: 'white', zIndex: 9999 }}>REACT LOADED</div>
       <AppShell />
     </QueryClientProvider>
   );

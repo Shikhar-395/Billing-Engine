@@ -1,7 +1,12 @@
 import { type FormEvent, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { tenantApi, setTenantId } from '../lib/api';
 import { useAuthSession } from '../lib/auth';
+
+function redirectTo(path: string) {
+  if (typeof window !== 'undefined') {
+    window.location.assign(path);
+  }
+}
 
 function slugify(input: string) {
   return input
@@ -19,7 +24,6 @@ function getErrorMessage(error: unknown) {
 }
 
 export default function OnboardingPage() {
-  const navigate = useNavigate();
   const { data: session } = useAuthSession();
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
@@ -45,7 +49,7 @@ export default function OnboardingPage() {
       });
 
       setTenantId(tenant.id);
-      navigate('/');
+      redirectTo('/');
     } catch (submitError) {
       setError(getErrorMessage(submitError));
     } finally {

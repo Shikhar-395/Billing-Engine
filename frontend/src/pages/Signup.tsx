@@ -1,6 +1,14 @@
 import { type FormEvent, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { authClient } from '../lib/auth';
+
+const googleAuthEnabled = import.meta.env.VITE_GOOGLE_AUTH_ENABLED === 'true';
+
+function redirectTo(path: string) {
+  if (typeof window !== 'undefined') {
+    window.location.assign(path);
+  }
+}
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) {
@@ -10,7 +18,6 @@ function getErrorMessage(error: unknown) {
 }
 
 export default function SignupPage() {
-  const navigate = useNavigate();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -33,7 +40,7 @@ export default function SignupPage() {
         throw new Error(result.error.message || 'Unable to create your account.');
       }
 
-      navigate('/onboarding');
+      redirectTo('/onboarding');
     } catch (submitError) {
       setError(getErrorMessage(submitError));
     } finally {
@@ -61,8 +68,8 @@ export default function SignupPage() {
       <div className="auth-panel">
         <div className="auth-copy">
           <span className="eyebrow">Create account</span>
-          <h1>Start with an account, then create your first billing tenant.</h1>
-          <p>The first run creates your company workspace after sign-up, so Google and email flows land in the same onboarding path.</p>
+          <h1>Create your account, then set up your billing workspace.</h1>
+          <p>After sign-up, you will create your company tenant and land in the dashboard.</p>
         </div>
 
         <form className="auth-form" onSubmit={handleSubmit}>
@@ -116,9 +123,11 @@ export default function SignupPage() {
           </button>
         </form>
 
-        <button className="btn btn-secondary auth-submit" type="button" onClick={handleGoogle} disabled={isPending}>
-          Continue with Google
-        </button>
+        {googleAuthEnabled ? (
+          <button className="btn btn-secondary auth-submit" type="button" onClick={handleGoogle} disabled={isPending}>
+            Continue with Google
+          </button>
+        ) : null}
 
         <p className="auth-switch">
           Already have an account? <Link to="/login">Sign in</Link>
