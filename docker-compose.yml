@@ -1,6 +1,22 @@
 version: "3.9"
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: billflow
+      POSTGRES_PASSWORD: billflow
+      POSTGRES_DB: billflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U billflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   redis:
     image: redis:7-alpine
     ports:
@@ -15,4 +31,5 @@ services:
       retries: 3
 
 volumes:
+  postgres_data:
   redis_data:

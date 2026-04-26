@@ -101,6 +101,10 @@ export default function LoginPage() {
 
           {error ? <p className="auth-error">{error}</p> : null}
 
+          <div style={{ textAlign: 'right', marginTop: -4 }}>
+            <Link to="/forgot-password" style={{ fontSize: 13, color: 'var(--accent-primary)' }}>Forgot password?</Link>
+          </div>
+
           <button className="btn btn-primary auth-submit" type="submit" disabled={isPending}>
             {isPending ? <div className="spinner" /> : null}
             Sign in

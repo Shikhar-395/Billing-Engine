@@ -26,6 +26,8 @@ const FLUSH_LUA_SCRIPT = `
 
 export interface FlushedRecord {
   tenantId: string;
+  customerId: string;
+  subscriptionId: string | null;
   metricKey: string;
   quantity: number;
   windowKey: string;
@@ -66,6 +68,8 @@ export async function flushUsageToDatabase(): Promise<number> {
 
     records.push({
       tenantId: parsed.tenantId,
+      customerId: parsed.customerId,
+      subscriptionId: parsed.subscriptionId,
       metricKey: parsed.metricKey,
       quantity,
       windowKey: parsed.windowKey,
@@ -81,6 +85,8 @@ export async function flushUsageToDatabase(): Promise<number> {
   await prisma.usageRecord.createMany({
     data: records.map((r) => ({
       tenantId: r.tenantId,
+      customerId: r.customerId,
+      subscriptionId: r.subscriptionId,
       metricKey: r.metricKey,
       quantity: r.quantity,
       windowStart: windowStart(now),

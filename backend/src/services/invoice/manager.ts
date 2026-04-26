@@ -50,6 +50,8 @@ export async function markInvoicePaid(invoiceId: string) {
   // Fire webhook
   await dispatchWebhookEvent(invoice.tenantId, 'invoice.paid', {
     invoiceId: invoice.id,
+    invoiceNumber: updated.invoiceNumber,
+    customerId: updated.customerId,
     total: invoice.total,
     currency: invoice.currency,
     paidAt: updated.paidAt,
@@ -79,6 +81,8 @@ export async function voidInvoice(invoiceId: string) {
   // Fire webhook
   await dispatchWebhookEvent(invoice.tenantId, 'invoice.voided', {
     invoiceId: invoice.id,
+    invoiceNumber: updated.invoiceNumber,
+    customerId: updated.customerId,
     total: invoice.total,
   });
 

@@ -16,12 +16,16 @@ import { windowKey } from '../../utils/dates.js';
  */
 export async function recordUsage(
   tenantId: string,
+  customerId: string,
   metricKey: string,
-  quantity: number = 1
+  quantity: number = 1,
+  subscriptionId?: string
 ): Promise<number> {
   const redis = getRedis();
   const wk = windowKey();
-  const key = `billing:usage:${tenantId}:${metricKey}:${wk}`;
+  const key = `billing:usage:${tenantId}:${customerId}:${
+    subscriptionId ?? 'none'
+  }:${metricKey}:${wk}`;
 
   // INCRBY for quantities > 1, INCR for single events
   const newValue = await redis.incrby(key, quantity);
@@ -37,11 +41,15 @@ export async function recordUsage(
  */
 export async function getCurrentUsage(
   tenantId: string,
-  metricKey: string
+  customerId: string,
+  metricKey: string,
+  subscriptionId?: string
 ): Promise<number> {
   const redis = getRedis();
   const wk = windowKey();
-  const key = `billing:usage:${tenantId}:${metricKey}:${wk}`;
+  const key = `billing:usage:${tenantId}:${customerId}:${
+    subscriptionId ?? 'none'
+  }:${metricKey}:${wk}`;
   const value = await redis.get(key);
   return value ? parseInt(value, 10) : 0;
 }
@@ -52,13 +60,18 @@ export async function getCurrentUsage(
  */
 export async function getUsageKeys(
   tenantId?: string,
+  customerId?: string,
   metricKey?: string
 ): Promise<string[]> {
   const redis = getRedis();
   const pattern = tenantId
-    ? metricKey
-      ? `billing:usage:${tenantId}:${metricKey}:*`
-      : `billing:usage:${tenantId}:*`
+    ? customerId
+      ? metricKey
+        ? `billing:usage:${tenantId}:${customerId}:*:${metricKey}:*`
+        : `billing:usage:${tenantId}:${customerId}:*`
+      : metricKey
+        ? `billing:usage:${tenantId}:*:*:${metricKey}:*`
+        : `billing:usage:${tenantId}:*`
     : 'billing:usage:*';
 
   const keys: string[] = [];
@@ -75,22 +88,25 @@ export async function getUsageKeys(
 
 /**
  * Parses a usage Redis key into its components.
- * Key format: billing:usage:{tenantId}:{metricKey}:{windowKey}
+ * Key format: billing:usage:{tenantId}:{customerId}:{subscriptionId|none}:{metricKey}:{windowKey}
  */
 export function parseUsageKey(key: string): {
   tenantId: string;
+  customerId: string;
+  subscriptionId: string | null;
   metricKey: string;
   windowKey: string;
 } | null {
   const parts = key.split(':');
-  // billing:usage:tenantId:metricKey:windowKey
-  if (parts.length < 5 || parts[0] !== 'billing' || parts[1] !== 'usage') {
+  if (parts.length < 7 || parts[0] !== 'billing' || parts[1] !== 'usage') {
     return null;
   }
 
   return {
     tenantId: parts[2],
-    metricKey: parts[3],
-    windowKey: parts.slice(4).join(':'),
+    customerId: parts[3],
+    subscriptionId: parts[4] === 'none' ? null : parts[4],
+    metricKey: parts[5],
+    windowKey: parts.slice(6).join(':'),
   };
 }

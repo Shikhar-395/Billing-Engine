@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { getPrisma } from '../config/prisma.js';
 import { voidInvoice } from '../services/invoice/manager.js';
+import { requireRole } from '../middleware/auth.js';
 import { NotFoundError } from '../utils/errors.js';
 
 const router = Router();
@@ -10,13 +11,23 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const prisma = getPrisma();
     const { status, limit = '20', offset = '0' } = req.query;
+    const customerId =
+      typeof req.query.customerId === 'string' ? req.query.customerId : undefined;
 
     const invoices = await prisma.invoice.findMany({
       where: {
         tenantId: req.tenant!.tenantId,
+        ...(customerId ? { customerId } : {}),
         ...(status ? { status: status as any } : {}),
       },
       include: {
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
         lineItems: true,
         subscription: { select: { plan: { select: { name: true } } } },
         _count: { select: { payments: true } },
@@ -29,6 +40,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     const total = await prisma.invoice.count({
       where: {
         tenantId: req.tenant!.tenantId,
+        ...(customerId ? { customerId } : {}),
         ...(status ? { status: status as any } : {}),
       },
     });
@@ -57,9 +69,10 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
         tenantId: req.tenant!.tenantId,
       },
       include: {
+        customer: true,
         lineItems: true,
         payments: { orderBy: { createdAt: 'desc' } },
-        subscription: { include: { plan: true } },
+        subscription: { include: { plan: true, customer: true } },
       },
     });
 
@@ -71,7 +84,10 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 });
 
 // ── POST /invoices/:id/void ──────────────────────────────
-router.post('/:id/void', async (req: Request, res: Response, next: NextFunction) => {
+router.post(
+  '/:id/void',
+  requireRole('owner', 'admin'),
+  async (req: Request, res: Response, next: NextFunction) => {
   try {
     const prisma = getPrisma();
     const existingInvoice = await prisma.invoice.findFirst({

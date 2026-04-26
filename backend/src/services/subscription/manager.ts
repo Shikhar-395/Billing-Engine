@@ -13,6 +13,7 @@ import { dispatchWebhookEvent } from '../webhook/dispatcher.js';
 
 export interface CreateSubscriptionInput {
   tenantId: string;
+  customerId: string;
   planId: string;
   trialDays?: number;
   stripeSubId?: string;
@@ -29,7 +30,7 @@ export interface UpgradeSubscriptionResult {
  */
 export async function createSubscription(input: CreateSubscriptionInput) {
   const prisma = getPrisma();
-  const { tenantId, planId, trialDays = 0, stripeSubId } = input;
+  const { tenantId, customerId, planId, trialDays = 0, stripeSubId } = input;
 
   const plan = await prisma.plan.findFirst({
     where: {
@@ -40,15 +41,24 @@ export async function createSubscription(input: CreateSubscriptionInput) {
   if (!plan) throw new NotFoundError('Plan', planId);
   if (!plan.isActive) throw new ConflictError('Plan is inactive');
 
-  // Check for existing active subscription
+  const customer = await prisma.customer.findFirst({
+    where: {
+      id: customerId,
+      tenantId,
+      status: 'ACTIVE',
+    },
+  });
+  if (!customer) throw new NotFoundError('Customer', customerId);
+
+  // Check for existing active subscription for this customer
   const existing = await prisma.subscription.findFirst({
     where: {
-      tenantId,
+      customerId,
       status: { in: ['TRIALING', 'ACTIVE'] },
     },
   });
   if (existing) {
-    throw new ConflictError('Tenant already has an active subscription');
+    throw new ConflictError('Customer already has an active subscription');
   }
 
   const now = new Date();
@@ -63,6 +73,7 @@ export async function createSubscription(input: CreateSubscriptionInput) {
   const subscription = await prisma.subscription.create({
     data: {
       tenantId,
+      customerId,
       planId,
       stripeSubId,
       status,
@@ -76,6 +87,8 @@ export async function createSubscription(input: CreateSubscriptionInput) {
   // Fire webhook
   await dispatchWebhookEvent(tenantId, 'subscription.created', {
     subscriptionId: subscription.id,
+    customerId: customer.id,
+    customerName: customer.name,
     planId: plan.id,
     planName: plan.name,
     status: subscription.status,
@@ -124,7 +137,7 @@ export async function upgradeSubscription(
   const updated = await prisma.subscription.update({
     where: { id: subscriptionId },
     data: { planId: newPlanId },
-    include: { plan: true },
+    include: { plan: true, customer: true },
   });
 
   // Create proration line item on the latest invoice (if any)
@@ -139,6 +152,8 @@ export async function upgradeSubscription(
   // Fire webhook
   await dispatchWebhookEvent(subscription.tenantId, 'subscription.upgraded', {
     subscriptionId: subscription.id,
+    customerId: updated.customerId,
+    customerName: updated.customer.name,
     oldPlanId: oldPlan.id,
     oldPlanName: oldPlan.name,
     newPlanId: newPlan.id,
@@ -172,12 +187,14 @@ export async function cancelSubscription(subscriptionId: string) {
       status: 'CANCELLED',
       cancelledAt: new Date(),
     },
-    include: { plan: true },
+    include: { plan: true, customer: true },
   });
 
   // Fire webhook
   await dispatchWebhookEvent(subscription.tenantId, 'subscription.cancelled', {
     subscriptionId: subscription.id,
+    customerId: updated.customerId,
+    customerName: updated.customer.name,
     planId: subscription.planId,
     cancelledAt: updated.cancelledAt,
   });

@@ -3,6 +3,7 @@ import { betterAuth } from 'better-auth';
 import { customSession } from 'better-auth/plugins';
 import { getPrisma } from './config/prisma.js';
 import { env } from './config/env.js';
+import { sendAppEmail } from './services/email/mailer.js';
 
 export const auth = betterAuth({
   appName: 'BillFlow',
@@ -32,8 +33,46 @@ export const auth = betterAuth({
   verification: {
     modelName: 'Verification',
   },
+  emailVerification: {
+    sendOnSignUp: true,
+    autoSignInAfterVerification: true,
+    async sendVerificationEmail({ user, url }) {
+      await sendAppEmail({
+        type: 'VERIFICATION',
+        recipient: user.email,
+        userId: user.id,
+        subject: 'Verify your BillFlow email address',
+        textBody: [
+          `Verify the email address for ${user.email}.`,
+          '',
+          `Open: ${url}`,
+        ].join('\n'),
+        actionUrl: url,
+        metadata: {
+          userId: user.id,
+        },
+      });
+    },
+  },
   emailAndPassword: {
     enabled: true,
+    async sendResetPassword({ user, url }) {
+      await sendAppEmail({
+        type: 'PASSWORD_RESET',
+        recipient: user.email,
+        userId: user.id,
+        subject: 'Reset your BillFlow password',
+        textBody: [
+          `A password reset was requested for ${user.email}.`,
+          '',
+          `Open: ${url}`,
+        ].join('\n'),
+        actionUrl: url,
+        metadata: {
+          userId: user.id,
+        },
+      });
+    },
   },
   socialProviders:
     env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET

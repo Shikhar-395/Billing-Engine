@@ -153,4 +153,49 @@ router.get('/deliveries', async (req: Request, res: Response, next: NextFunction
   }
 });
 
+// ── POST /webhooks/deliveries/:id/replay ─────────────────
+router.post('/deliveries/:id/replay', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const prisma = getPrisma();
+    const delivery = await prisma.webhookDelivery.findFirst({
+      where: {
+        id: req.params.id as string,
+        endpoint: { tenantId: req.tenant!.tenantId },
+      },
+      include: { endpoint: true },
+    });
+
+    if (!delivery) throw new NotFoundError('Webhook delivery', req.params.id as string);
+
+    let httpStatus: number | null = null;
+    const now = new Date();
+
+    try {
+      const signal = AbortSignal.timeout(10_000);
+      const response = await fetch(delivery.endpoint.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(delivery.payload),
+        signal,
+      });
+      httpStatus = response.status;
+    } catch {
+      httpStatus = null;
+    }
+
+    const updated = await prisma.webhookDelivery.update({
+      where: { id: delivery.id },
+      data: {
+        httpStatus,
+        attemptCount: delivery.attemptCount + 1,
+        lastAttemptAt: now,
+      },
+    });
+
+    res.json({ success: true, data: updated });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;

@@ -5,6 +5,7 @@ import {
   computeUsageCharges,
   ChargeLineItem,
 } from '../billing/chargeCalculator.js';
+import { Prisma } from '@prisma/client';
 import { NotFoundError, ConflictError } from '../../utils/errors.js';
 import { dispatchWebhookEvent } from '../webhook/dispatcher.js';
 
@@ -20,6 +21,30 @@ export interface GenerateInvoiceInput {
   usagePricing?: Record<string, number>; // metricKey → price per unit
 }
 
+async function claimNextInvoiceNumber(
+  tx: Prisma.TransactionClient,
+  tenantId: string
+) {
+  const rows = await tx.$queryRaw<
+    Array<{ slug: string; sequence: number }>
+  >`
+    UPDATE "Tenant"
+    SET "nextInvoiceSequence" = "nextInvoiceSequence" + 1
+    WHERE "id" = ${tenantId}
+    RETURNING "slug", "nextInvoiceSequence" - 1 AS "sequence"
+  `;
+
+  const row = rows[0];
+
+  if (!row) {
+    throw new NotFoundError('Tenant', tenantId);
+  }
+
+  return `INV-${row.slug.toUpperCase().replace(/-/g, '')}-${String(
+    row.sequence
+  ).padStart(6, '0')}`;
+}
+
 /**
  * Generates an invoice for a subscription billing period.
  */
@@ -29,7 +54,7 @@ export async function generateInvoice(input: GenerateInvoiceInput) {
 
   const subscription = await prisma.subscription.findUnique({
     where: { id: subscriptionId },
-    include: { plan: true },
+    include: { plan: true, customer: true },
   });
 
   if (!subscription) throw new NotFoundError('Subscription', subscriptionId);
@@ -67,7 +92,9 @@ export async function generateInvoice(input: GenerateInvoiceInput) {
     const inv = await tx.invoice.create({
       data: {
         tenantId,
+        customerId: subscription.customerId,
         subscriptionId,
+        invoiceNumber: await claimNextInvoiceNumber(tx, tenantId),
         status: 'DRAFT',
         subtotal,
         tax,
@@ -97,6 +124,9 @@ export async function generateInvoice(input: GenerateInvoiceInput) {
   // Fire webhook
   await dispatchWebhookEvent(tenantId, 'invoice.created', {
     invoiceId: invoice!.id,
+    invoiceNumber: invoice!.invoiceNumber,
+    customerId: subscription.customerId,
+    customerName: subscription.customer.name,
     subscriptionId,
     total,
     currency: subscription.plan.currency,
@@ -124,15 +154,28 @@ export async function addProrationToInvoice(
   });
 
   if (!invoice) {
+    const subscription = await prisma.subscription.findUnique({
+      where: { id: subscriptionId },
+      include: {
+        plan: true,
+      },
+    });
+
+    if (!subscription) {
+      throw new NotFoundError('Subscription', subscriptionId);
+    }
+
     invoice = await prisma.invoice.create({
       data: {
         tenantId,
+        customerId: subscription.customerId,
         subscriptionId,
+        invoiceNumber: await claimNextInvoiceNumber(prisma, tenantId),
         status: 'DRAFT',
         subtotal: 0,
         tax: 0,
         total: 0,
-        currency: 'INR',
+        currency: subscription.plan.currency,
       },
     });
   }

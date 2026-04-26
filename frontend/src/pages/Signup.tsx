@@ -24,6 +24,8 @@ export default function SignupPage() {
   const [isPending, setIsPending] = useState(false);
   const googleAuthEnabled = providers?.google ?? false;
 
+  const [signedUp, setSignedUp] = useState(false);
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsPending(true);
@@ -40,13 +42,14 @@ export default function SignupPage() {
         throw new Error(result.error.message || 'Unable to create your account.');
       }
 
-      redirectTo('/onboarding');
+      setSignedUp(true);
     } catch (submitError) {
       setError(getErrorMessage(submitError));
     } finally {
       setIsPending(false);
     }
   };
+
 
   const handleGoogle = async () => {
     setIsPending(true);
@@ -66,6 +69,27 @@ export default function SignupPage() {
   return (
     <div className="auth-shell">
       <div className="auth-panel">
+        {signedUp ? (
+          <>
+            <div className="auth-copy">
+              <span className="eyebrow">Almost there!</span>
+              <h1>Verify your email</h1>
+              <p>
+                We sent a confirmation link to <strong>{email}</strong>. Click it to activate your account.
+              </p>
+            </div>
+            {import.meta.env.DEV && (
+              <div style={{ padding: '12px 16px', background: 'var(--info-bg)', border: '1px solid var(--info-border)', borderRadius: 'var(--radius-md)', fontSize: 14 }}>
+                <strong style={{ color: 'var(--info)' }}>Development mode:</strong>
+                <span style={{ color: 'var(--text-secondary)', marginLeft: 6 }}>
+                  Check the <Link to="/dev-mailbox">Dev Mailbox</Link> for the verification link.
+                </span>
+              </div>
+            )}
+            <Link to="/login" className="btn btn-secondary auth-submit">Back to Login</Link>
+          </>
+        ) : (
+          <>
         <div className="auth-copy">
           <span className="eyebrow">Create account</span>
           <h1>Create your account, then set up your billing workspace.</h1>
@@ -129,9 +153,11 @@ export default function SignupPage() {
           </button>
         ) : null}
 
-        <p className="auth-switch">
-          Already have an account? <Link to="/login">Sign in</Link>
-        </p>
+          <p className="auth-switch">
+            Already have an account? <Link to="/login">Sign in</Link>
+          </p>
+          </>
+        )}
       </div>
     </div>
   );

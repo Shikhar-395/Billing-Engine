@@ -19,6 +19,10 @@ import webhookRoutes from './routes/webhooks.js';
 import stripeWebhookRoute from './routes/stripeWebhook.js';
 import auditLogRoutes from './routes/auditLogs.js';
 import authMetaRoutes from './routes/authMeta.js';
+import customerRoutes from './routes/customers.js';
+import teamRoutes from './routes/team.js';
+import devMailboxRoutes from './routes/devMailbox.js';
+import seedRoutes from './routes/seed.js';
 
 /**
  * Express application factory.
@@ -65,6 +69,12 @@ export function createApp(): express.Application {
   v1.use('/payments', authenticate, rateLimiter, paymentRoutes);
   v1.use('/webhooks', authenticate, rateLimiter, webhookRoutes);
   v1.use('/audit-logs', authenticate, rateLimiter, auditLogRoutes);
+  v1.use('/customers', authenticate, rateLimiter, customerRoutes);
+  v1.use('/team', teamRoutes); // auth handled per-route (some endpoints are public)
+
+  // Dev-only routes (mailbox + seed)
+  v1.use('/dev', devMailboxRoutes);
+  v1.use('/dev', seedRoutes);
 
   app.use('/api/v1', v1);
 

@@ -1,131 +1,160 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { useAuthSession } from './lib/auth';
+import { setTenantId, getTenantId } from './lib/api';
+import { ToastProvider } from './components/Toast';
 
+// Layout
 import Layout from './components/Layout';
+
+// Auth pages (public)
+import LoginPage from './pages/Login';
+import SignupPage from './pages/Signup';
+import VerifyEmailPage from './pages/VerifyEmail';
+import ForgotPasswordPage from './pages/ForgotPassword';
+import ResetPasswordPage from './pages/ResetPassword';
+import AcceptInvitationPage from './pages/AcceptInvitation';
+
+// Protected pages
 import DashboardPage from './pages/Dashboard';
 import PlansPage from './pages/Plans';
 import SubscriptionsPage from './pages/Subscriptions';
-import UsagePage from './pages/Usage';
 import InvoicesPage from './pages/Invoices';
 import PaymentsPage from './pages/Payments';
+import UsagePage from './pages/Usage';
 import WebhooksPage from './pages/Webhooks';
 import AuditLogsPage from './pages/AuditLogs';
-import LoginPage from './pages/Login';
-import SignupPage from './pages/Signup';
-import OnboardingPage from './pages/Onboarding';
-import { clearTenantId, getTenantId, setTenantId } from './lib/api';
-import { type AuthSessionData, useAuthSession } from './lib/auth';
+import CustomersPage from './pages/Customers';
+import TeamPage from './pages/Team';
+import SettingsPage from './pages/Settings';
+import DevMailboxPage from './pages/DevMailbox';
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 10000,
       retry: 1,
+      staleTime: 30_000,
     },
   },
 });
 
-function BootScreen({
-  message,
-  detail,
-}: {
-  message: string;
-  detail?: string;
-}) {
+// ── Boot screen ───────────────────────────────────────────
+function BootScreen() {
   return (
-    <div className="boot-screen">
-      <div className="boot-panel" aria-live="polite" aria-busy="true">
-        <div className="spinner spinner-lg" />
-        <span>{message}</span>
-        {detail ? <code>{detail}</code> : null}
-      </div>
+    <div style={{
+      height: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexDirection: 'column',
+      gap: 16,
+      background: 'var(--bg-primary)',
+    }}>
+      <div className="spinner" style={{ width: 40, height: 40, borderWidth: 3 }} />
+      <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Loading BillFlow...</p>
     </div>
   );
 }
 
-function SessionRouter({ session }: { session: AuthSessionData | null }) {
+// ── App shell (session-aware) ─────────────────────────────
+function AppShell() {
+  const { data: session, isPending } = useAuthSession();
+  const [tenantReady, setTenantReady] = useState(!!getTenantId());
+
   useEffect(() => {
-    if (!session || !session.onboardingComplete) {
-      clearTenantId();
-      return;
-    }
+    if (!session) return;
 
-    const currentTenantId = getTenantId();
-    const memberships = session.memberships;
-    const fallbackTenantId =
-      memberships.find((membership) => membership.tenantId === currentTenantId)
-        ?.tenantId ??
-      session.currentTenantId ??
-      memberships[0]?.tenantId;
+    // Auto-select tenant: prefer stored, fall back to first membership
+    const stored = getTenantId();
+    const hasMembership = session.memberships.some(m => m.tenantId === stored);
 
-    if (fallbackTenantId) {
-      setTenantId(fallbackTenantId);
+    if (!stored || !hasMembership) {
+      const first = session.memberships[0];
+      if (first) {
+        setTenantId(first.tenantId);
+        setTenantReady(true);
+      }
+    } else {
+      setTenantReady(true);
     }
   }, [session]);
 
-  const isAuthenticated = Boolean(session);
-  const onboardingComplete = Boolean(session?.onboardingComplete);
+  if (isPending) return <BootScreen />;
+
+  const isAuthenticated = !!session;
+
+  // Public routes always accessible
+  const publicRoutes = (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/signup" element={<SignupPage />} />
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
+      <Route path="*" element={<Navigate to="/login" replace />} />
+    </Routes>
+  );
+
+  if (!isAuthenticated) {
+    return (
+      <Routes>
+        {/* Allow accept-invitation and reset-password even unauthenticated */}
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    );
+  }
+
+  if (!tenantReady) return <BootScreen />;
 
   return (
     <Routes>
-      {!isAuthenticated ? (
-        <>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />
-          <Route path="*" element={<Navigate replace to="/login" />} />
-        </>
-      ) : !onboardingComplete ? (
-        <>
-          <Route path="/onboarding" element={<OnboardingPage />} />
-          <Route path="*" element={<Navigate replace to="/onboarding" />} />
-        </>
-      ) : (
-        <>
-          <Route path="/login" element={<Navigate replace to="/" />} />
-          <Route path="/signup" element={<Navigate replace to="/" />} />
-          <Route path="/onboarding" element={<Navigate replace to="/" />} />
-          <Route element={<Layout />}>
-            <Route path="/" element={<DashboardPage />} />
-            <Route path="/plans" element={<PlansPage />} />
-            <Route path="/subscriptions" element={<SubscriptionsPage />} />
-            <Route path="/usage" element={<UsagePage />} />
-            <Route path="/invoices" element={<InvoicesPage />} />
-            <Route path="/payments" element={<PaymentsPage />} />
-            <Route path="/webhooks" element={<WebhooksPage />} />
-            <Route path="/audit-logs" element={<AuditLogsPage />} />
-          </Route>
-          <Route path="*" element={<Navigate replace to="/" />} />
-        </>
-      )}
+      {/* Public auth pages (redirect to dashboard if already logged in) */}
+      <Route path="/login" element={<Navigate to="/" replace />} />
+      <Route path="/signup" element={<Navigate to="/" replace />} />
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
+      <Route path="/forgot-password" element={<Navigate to="/" replace />} />
+      <Route path="/reset-password" element={<Navigate to="/" replace />} />
+      <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
+
+      {/* Protected layout */}
+      <Route element={<Layout />}>
+        <Route index element={<DashboardPage />} />
+        <Route path="customers" element={<CustomersPage />} />
+        <Route path="plans" element={<PlansPage />} />
+        <Route path="subscriptions" element={<SubscriptionsPage />} />
+        <Route path="usage" element={<UsagePage />} />
+        <Route path="invoices" element={<InvoicesPage />} />
+        <Route path="payments" element={<PaymentsPage />} />
+        <Route path="webhooks" element={<WebhooksPage />} />
+        <Route path="audit-logs" element={<AuditLogsPage />} />
+        <Route path="team" element={<TeamPage />} />
+        <Route path="settings" element={<SettingsPage />} />
+        {import.meta.env.DEV && (
+          <Route path="dev-mailbox" element={<DevMailboxPage />} />
+        )}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Route>
     </Routes>
   );
 }
 
-function AppShell() {
-  const { data: session, isPending } = useAuthSession();
-
-  if (isPending) {
-    return (
-      <BootScreen
-        message="Connecting to billing system..."
-        detail="auth:session / tenancy:resolve"
-      />
-    );
-  }
-
-  return (
-    <BrowserRouter>
-      <SessionRouter session={session} />
-    </BrowserRouter>
-  );
-}
-
+// ── Root ──────────────────────────────────────────────────
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <div style={{ position: 'fixed', top: 0, left: 0, background: 'red', color: 'white', zIndex: 9999 }}>REACT LOADED</div>
-      <AppShell />
+      <BrowserRouter>
+        <ToastProvider>
+          <AppShell />
+        </ToastProvider>
+      </BrowserRouter>
     </QueryClientProvider>
   );
 }

@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { validate } from '../middleware/validate.js';
 import { getPrisma } from '../config/prisma.js';
+import { requireRole } from '../middleware/auth.js';
 import {
   createSubscription,
   upgradeSubscription,
@@ -14,6 +15,7 @@ const router = Router();
 
 // ── Schemas ──────────────────────────────────────────────
 const createSubscriptionSchema = z.object({
+  customerId: z.string().uuid(),
   planId: z.string().uuid(),
   trialDays: z.number().int().min(0).max(90).optional(),
 });
@@ -23,10 +25,15 @@ const upgradeSubscriptionSchema = z.object({
 });
 
 // ── POST /subscriptions ──────────────────────────────────
-router.post('/', validate(createSubscriptionSchema), async (req: Request, res: Response, next: NextFunction) => {
+router.post(
+  '/',
+  requireRole('owner', 'admin', 'member'),
+  validate(createSubscriptionSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
   try {
     const subscription = await createSubscription({
       tenantId: req.tenant!.tenantId,
+      customerId: req.body.customerId,
       planId: req.body.planId,
       trialDays: req.body.trialDays,
     });
@@ -41,9 +48,15 @@ router.post('/', validate(createSubscriptionSchema), async (req: Request, res: R
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const prisma = getPrisma();
+    const customerId =
+      typeof req.query.customerId === 'string' ? req.query.customerId : undefined;
     const subscriptions = await prisma.subscription.findMany({
-      where: { tenantId: req.tenant!.tenantId },
+      where: {
+        tenantId: req.tenant!.tenantId,
+        ...(customerId ? { customerId } : {}),
+      },
       include: {
+        customer: true,
         plan: { include: { features: true } },
         dunningAttempts: { orderBy: { createdAt: 'desc' }, take: 5 },
       },
@@ -66,6 +79,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
         tenantId: req.tenant!.tenantId,
       },
       include: {
+        customer: true,
         plan: { include: { features: true } },
         invoices: { orderBy: { createdAt: 'desc' }, take: 10 },
         dunningAttempts: { orderBy: { createdAt: 'desc' } },
@@ -80,7 +94,11 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 });
 
 // ── POST /subscriptions/:id/upgrade ──────────────────────
-router.post('/:id/upgrade', validate(upgradeSubscriptionSchema), async (req: Request, res: Response, next: NextFunction) => {
+router.post(
+  '/:id/upgrade',
+  requireRole('owner', 'admin', 'member'),
+  validate(upgradeSubscriptionSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
   try {
     const prisma = getPrisma();
     const currentSubscription = await prisma.subscription.findFirst({
@@ -127,7 +145,10 @@ router.post('/:id/upgrade', validate(upgradeSubscriptionSchema), async (req: Req
 });
 
 // ── POST /subscriptions/:id/cancel ───────────────────────
-router.post('/:id/cancel', async (req: Request, res: Response, next: NextFunction) => {
+router.post(
+  '/:id/cancel',
+  requireRole('owner', 'admin', 'member'),
+  async (req: Request, res: Response, next: NextFunction) => {
   try {
     const prisma = getPrisma();
     const currentSubscription = await prisma.subscription.findFirst({
