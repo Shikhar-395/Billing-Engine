@@ -129,7 +129,7 @@ a:hover {
 
 .sidebar {
   width: 272px;
-  min-height: 100vh;
+  height: 100vh;
   background:
     linear-gradient(180deg, rgba(43, 228, 167, 0.08), transparent 220px),
     var(--bg-secondary);
@@ -185,6 +185,7 @@ a:hover {
   flex-direction: column;
   gap: 2px;
   flex: 1;
+  overflow-y: auto;
 }
 
 .sidebar-section-title {
