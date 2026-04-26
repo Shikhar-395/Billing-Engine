@@ -1,8 +1,6 @@
 import { type FormEvent, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { authClient } from '../lib/auth';
-
-const googleAuthEnabled = import.meta.env.VITE_GOOGLE_AUTH_ENABLED === 'true';
+import { authClient, useAuthProviders } from '../lib/auth';
 
 function redirectTo(path: string) {
   if (typeof window !== 'undefined') {
@@ -18,10 +16,12 @@ function getErrorMessage(error: unknown) {
 }
 
 export default function LoginPage() {
+  const { data: providers } = useAuthProviders();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isPending, setIsPending] = useState(false);
+  const googleAuthEnabled = providers?.google ?? false;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

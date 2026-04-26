@@ -19,7 +19,7 @@ const envSchema = z.object({
   STRIPE_SECRET_KEY: z.string().default('sk_test_placeholder'),
   STRIPE_WEBHOOK_SECRET: z.string().default('whsec_placeholder'),
   BETTER_AUTH_SECRET: z.string().min(16).default('better-auth-secret-dev-only'),
-  BETTER_AUTH_URL: z.url().default('http://127.0.0.1:5173'),
+  BETTER_AUTH_URL: z.url().default('http://localhost:5173'),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   PORT: z.coerce.number().default(4000),

@@ -84,7 +84,7 @@ Then update at least:
 DATABASE_URL="postgresql://user:password@host/dbname?sslmode=require"
 REDIS_URL="redis://localhost:6379"
 BETTER_AUTH_SECRET="generate-a-random-secret-at-least-32-characters"
-BETTER_AUTH_URL="http://127.0.0.1:5173"
+BETTER_AUTH_URL="http://localhost:5173"
 PORT=4000
 NODE_ENV="development"
 ```
@@ -140,6 +140,34 @@ On first run:
 3. Complete onboarding by creating your first tenant/company.
 4. Use the dashboard as that tenant owner.
 
+## Google Sign-In
+
+BillFlow supports Google sign-in through Better Auth.
+
+To enable it:
+
+1. Create a Google OAuth web application in Google Cloud Console.
+2. Add an authorized redirect URI that matches your local frontend origin:
+   - `http://localhost:5173/api/auth/callback/google`
+   - add `http://127.0.0.1:5173/api/auth/callback/google` too if you switch between `localhost` and `127.0.0.1`
+3. Put your credentials in the root `.env`:
+
+```env
+GOOGLE_CLIENT_ID="your-google-client-id"
+GOOGLE_CLIENT_SECRET="your-google-client-secret"
+BETTER_AUTH_URL="http://localhost:5173"
+```
+
+Once those backend credentials are present, the login and signup pages automatically show the Google button.
+
+If you are running the backend through `backend/docker-compose.yml`, set these instead in `backend/.env`:
+
+```env
+API_BETTER_AUTH_URL="http://localhost:5173"
+API_GOOGLE_CLIENT_ID="your-google-client-id"
+API_GOOGLE_CLIENT_SECRET="your-google-client-secret"
+```
+
 ## Backend Docker Compose
 
 If you only want the backend stack, you can run it directly from the `backend` folder:
@@ -161,10 +189,12 @@ You can override defaults by creating a `backend/.env` file or exporting environ
 
 ```env
 API_BETTER_AUTH_SECRET="generate-a-random-secret-at-least-32-characters"
-API_BETTER_AUTH_URL="http://localhost:4000"
+API_BETTER_AUTH_URL="http://localhost:5173"
 POSTGRES_DB="billflow"
 POSTGRES_USER="billflow"
 POSTGRES_PASSWORD="billflow"
+API_GOOGLE_CLIENT_ID="your-google-client-id"
+API_GOOGLE_CLIENT_SECRET="your-google-client-secret"
 ```
 
 ## Authentication and Tenant Context
@@ -187,6 +217,7 @@ X-Tenant-Id: <tenant-id>
 Useful auth routes:
 
 ```text
+GET  /api/v1/auth/providers
 POST /api/auth/sign-up/email
 POST /api/auth/sign-in/email
 POST /api/auth/sign-out

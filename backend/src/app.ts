@@ -18,6 +18,7 @@ import paymentRoutes from './routes/payments.js';
 import webhookRoutes from './routes/webhooks.js';
 import stripeWebhookRoute from './routes/stripeWebhook.js';
 import auditLogRoutes from './routes/auditLogs.js';
+import authMetaRoutes from './routes/authMeta.js';
 
 /**
  * Express application factory.
@@ -50,6 +51,7 @@ export function createApp(): express.Application {
   const v1 = express.Router();
 
   // Public routes (no auth)
+  v1.use('/auth', authMetaRoutes);
   v1.use('/tenants', tenantRoutes);
 
   // Stripe webhook (separate auth via signature)
